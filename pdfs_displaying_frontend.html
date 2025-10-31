@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>📚 PDF Stream</title>
+
+  <!-- Font -->
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Poppins', sans-serif;
+      background: linear-gradient(135deg, #0f172a, #1e293b);
+      color: white;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding-bottom: 40px;
+    }
+
+    header {
+      width: 100%;
+      padding: 16px;
+      text-align: center;
+      background: rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(12px);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+      font-size: 1.5em;
+      font-weight: 600;
+      color: #60a5fa;
+      letter-spacing: 1px;
+    }
+
+    #feed {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 16px;
+      width: 92%;
+      max-width: 1300px;
+      margin-top: 24px;
+    }
+
+    .card {
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 16px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      transition: transform 0.25s ease, box-shadow 0.25s ease;
+    }
+
+    .card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+    }
+
+    .preview {
+      width: 100%;
+      aspect-ratio: 16/9;
+      border-radius: 12px;
+      overflow: hidden;
+      background: #1e293b;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #94a3b8;
+      font-size: 0.9em;
+    }
+
+    .preview iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+
+    .info { margin-top: 10px; }
+
+    .title {
+      font-size: 1em;
+      font-weight: 600;
+      color: #f8fafc;
+      margin-bottom: 4px;
+      line-height: 1.4;
+      word-break: break-word;
+    }
+
+    .meta {
+      font-size: 0.85em;
+      color: #94a3b8;
+      word-break: break-word;
+    }
+
+    .open-btn {
+      margin-top: 10px;
+      background: #60a5fa;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 10px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.25s ease;
+      font-size: 0.95em;
+    }
+
+    .open-btn:hover { background: #3b82f6; }
+
+    footer {
+      margin-top: 30px;
+      color: #94a3b8;
+      font-size: 0.9em;
+      text-align: center;
+    }
+
+    .loader {
+      margin-top: 60px;
+      border: 6px solid rgba(255, 255, 255, 0.2);
+      border-top: 6px solid #60a5fa;
+      border-radius: 50%;
+      width: 45px;
+      height: 45px;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .pdf-viewer {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: #0f172a;
+      z-index: 999;
+      display: none;
+      flex-direction: column;
+    }
+
+    .pdf-viewer.active { display: flex; }
+
+    .pdf-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 14px;
+      background: rgba(15, 23, 42, 0.9);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .pdf-toolbar h2 {
+      font-size: 1em;
+      color: #93c5fd;
+      font-weight: 500;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 80%;
+    }
+
+    .close-full {
+      background: #ef4444;
+      border: none;
+      color: white;
+      font-size: 1.2em;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      cursor: pointer;
+      transition: background 0.25s ease;
+    }
+
+    .close-full:hover { background: #dc2626; }
+
+    .pdf-iframe {
+      flex-grow: 1;
+      border: none;
+      width: 100%;
+      height: 100%;
+    }
+
+    @media (max-width: 768px) {
+      header { font-size: 1.3em; padding: 12px; }
+      .open-btn { font-size: 0.9em; padding: 8px; }
+      .meta { font-size: 0.8em; }
+    }
+
+    @media (max-width: 480px) {
+      #feed { width: 96%; gap: 12px; }
+      .card { padding: 10px; }
+      .preview { aspect-ratio: 4/3; }
+      .title { font-size: 0.95em; }
+      .pdf-toolbar h2 { font-size: 0.9em; }
+      .close-full { width: 32px; height: 32px; font-size: 1em; }
+    }
+  </style>
+</head>
+
+<body>
+  <header>📚 PDF Stream</header>
+  <div id="feed"></div>
+  <div id="loader" class="loader"></div>
+  <footer>Powered by Archive & Your Backend</footer>
+
+  <!-- Fullscreen PDF Viewer -->
+  <div id="pdfViewer" class="pdf-viewer">
+    <div class="pdf-toolbar">
+      <h2 id="pdfTitle">PDF Viewer</h2>
+      <button class="close-full" id="closeViewer">&times;</button>
+    </div>
+    <iframe id="pdfFrame" class="pdf-iframe" src=""></iframe>
+  </div>
+
+  <script>
+    const FEED = document.getElementById('feed');
+    const LOADER = document.getElementById('loader');
+    const VIEWER = document.getElementById('pdfViewer');
+    const PDF_FRAME = document.getElementById('pdfFrame');
+    const PDF_TITLE = document.getElementById('pdfTitle');
+    const CLOSE_VIEWER = document.getElementById('closeViewer');
+
+    const BACKEND_URL = 'https://pdfs_displaying_backend.video-api-ajaiahar.workers.dev';
+
+    let allData = [];
+    let currentIndex = 0;
+    const BATCH_SIZE = 30;
+    let loadingMore = false;
+
+    async function fetchData() {
+      try {
+        const res = await fetch(BACKEND_URL);
+        const data = await res.json();
+        LOADER.style.display = 'none';
+
+        if (!data || data.length === 0) {
+          FEED.innerHTML = "<p style='text-align:center;color:#94a3b8'>No PDFs found 😢</p>";
+          return;
+        }
+
+        allData = data.sort((a, b) => Number(b.id) - Number(a.id));
+        loadNextBatch();
+        window.addEventListener('scroll', handleScroll);
+      } catch (err) {
+        LOADER.style.display = 'none';
+        FEED.innerHTML = `<p style='text-align:center;color:#f87171'>Error loading data 😞</p>`;
+        console.error(err);
+      }
+    }
+
+    function loadNextBatch() {
+      if (loadingMore) return;
+      loadingMore = true;
+
+      const nextBatch = allData.slice(currentIndex, currentIndex + BATCH_SIZE);
+      nextBatch.forEach(item => createCard(item));
+
+      currentIndex += BATCH_SIZE;
+      loadingMore = false;
+
+      if (currentIndex >= allData.length) {
+        window.removeEventListener('scroll', handleScroll);
+      }
+    }
+
+    function createCard(item) {
+      const card = document.createElement('div');
+      card.className = 'card';
+
+      const preview = document.createElement('div');
+      preview.className = 'preview';
+
+      if (item.archive_url && item.archive_url.includes('archive.org')) {
+        const embedUrl = item.archive_url.replace('/details/', '/embed/');
+        preview.innerHTML = `<iframe src="${embedUrl}" allowfullscreen></iframe>`;
+      } else {
+        preview.textContent = 'No Preview Available';
+      }
+
+      const info = document.createElement('div');
+      info.className = 'info';
+      info.innerHTML = `
+        <div class="title">${item.title || 'Untitled PDF'}</div>
+        <div class="meta">👤 ${item.username || 'Anonymous'} • 🆔 ${item.id || 'N/A'}</div>
+      `;
+
+      const openBtn = document.createElement('button');
+      openBtn.className = 'open-btn';
+      openBtn.textContent = 'Open PDF';
+      openBtn.onclick = () => openFullscreenPDF(item.title, item.archive_url);
+
+      card.append(preview, info, openBtn);
+      FEED.appendChild(card);
+    }
+
+    function handleScroll() {
+      const { scrollTop, scrollHeight, clientHeight } = document.documentElement;
+      if (scrollTop + clientHeight >= scrollHeight - 10) {
+        loadNextBatch();
+      }
+    }
+
+    function openFullscreenPDF(title, url) {
+      if (!url) return;
+      const embedUrl = url.includes('archive.org')
+        ? url.replace('/details/', '/embed/')
+        : url;
+      PDF_TITLE.textContent = title || 'PDF Viewer';
+      PDF_FRAME.src = embedUrl;
+      VIEWER.classList.add('active');
+    }
+
+    CLOSE_VIEWER.onclick = () => closeViewer();
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeViewer(); });
+
+    function closeViewer() {
+      VIEWER.classList.remove('active');
+      PDF_FRAME.src = '';
+    }
+
+    fetchData();
+  </script>
+</body>
+</html>

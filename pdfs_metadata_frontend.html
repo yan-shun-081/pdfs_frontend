@@ -1,0 +1,388 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Archive Upload App</title>
+  <style>
+    :root {
+      --bg: #0f1724;
+      --card: #111827;
+      --accent: #60a5fa;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --radius: 16px;
+      --transition: 0.3s ease;
+    }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    h1 {
+      margin-top: 20px;
+      font-size: 1.8rem;
+      font-weight: 600;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 480px;
+      padding: 20px;
+    }
+
+    .card {
+      background: var(--card);
+      border-radius: var(--radius);
+      padding: 20px;
+      box-shadow: 0 0 15px rgba(0,0,0,0.3);
+      transition: var(--transition);
+    }
+
+    .hidden { display: none; }
+
+    input, button {
+      font-size: 1rem;
+      border: none;
+      outline: none;
+      border-radius: var(--radius);
+      transition: var(--transition);
+    }
+
+    input {
+      flex: 1;
+      padding: 12px 16px;
+      background: #1f2937;
+      color: var(--text);
+    }
+
+    input:focus {
+      background: #273549;
+      box-shadow: 0 0 0 2px var(--accent);
+    }
+
+    button {
+      background: var(--accent);
+      color: #fff;
+      cursor: pointer;
+      padding: 12px 16px;
+      font-weight: 500;
+    }
+
+    button:hover {
+      opacity: 0.9;
+      transform: scale(1.03);
+    }
+
+    .searchbar {
+      width: 100%;
+      display: flex;
+      gap: 10px;
+    }
+
+    form {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      margin-top: 15px;
+    }
+
+    .back-btn {
+      color: var(--accent);
+      cursor: pointer;
+      text-align: left;
+      margin-bottom: 15px;
+      font-size: 0.9rem;
+    }
+
+    .success, .error {
+      text-align: center;
+      font-weight: 500;
+      margin-top: 10px;
+    }
+
+    .success { color: #4ade80; }
+    .error { color: #f87171; }
+
+    .upload-btn {
+      width: 100%;
+      background: linear-gradient(90deg, #3b82f6, #2563eb);
+      padding: 14px;
+      border-radius: var(--radius);
+      font-weight: 600;
+      color: #fff;
+      text-align: center;
+      margin-top: 25px;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+
+    .upload-btn:hover {
+      transform: scale(1.03);
+      background: linear-gradient(90deg, #2563eb, #3b82f6);
+    }
+
+    .animated { animation: fadeIn 0.5s ease forwards; }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .results {
+      margin-top: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .result-card {
+      background: #1e293b;
+      border-radius: var(--radius);
+      padding: 15px;
+      border-left: 4px solid var(--accent);
+      transition: var(--transition);
+      cursor: pointer;
+    }
+
+    .result-card:hover {
+      transform: scale(1.02);
+      background: #24364d;
+    }
+
+    .result-title {
+      font-weight: 600;
+      font-size: 1.1rem;
+    }
+
+    .result-meta {
+      color: var(--muted);
+      font-size: 0.9rem;
+      margin-top: 4px;
+    }
+
+    /* Viewer */
+    #viewerPage {
+      position: relative;
+    }
+
+    #viewerPage iframe {
+      width: 100%;
+      height: 80vh;
+      border: none;
+      border-radius: var(--radius);
+      background: #000;
+    }
+
+    #fullscreenBtn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: rgba(96,165,250,0.9);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 8px 12px;
+      cursor: pointer;
+      font-weight: 600;
+      z-index: 10;
+    }
+
+    #fullscreenBtn:hover {
+      background: rgba(37,99,235,0.9);
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Archive Upload App</h1>
+  <div class="container">
+
+    <!-- Search Page -->
+    <div id="home" class="card animated">
+      <div class="searchbar">
+        <input type="text" id="searchInput" placeholder="Search by title, username, or ID..." />
+        <button id="searchBtn">Search</button>
+      </div>
+      <div id="searchResults" class="results"></div>
+      <div class="upload-btn" id="goUpload">➕ Upload New Archive</div>
+    </div>
+
+    <!-- Upload Page -->
+    <div id="uploadPage" class="card hidden animated">
+      <div class="back-btn" id="goBack">← Back</div>
+      <form id="uploadForm">
+        <input type="url" id="archive_url" placeholder="Enter Archive.org URL" required />
+        <input type="text" id="title" placeholder="Enter Title" required />
+        <input type="text" id="username" placeholder="Enter Username" required />
+        <input type="tel" id="phone_number" placeholder="Enter Phone Number" required />
+        <button type="submit">📤 Post</button>
+      </form>
+      <div id="message"></div>
+    </div>
+
+    <!-- Viewer Page -->
+    <div id="viewerPage" class="card hidden animated">
+      <div class="back-btn" id="backToSearch">← Back to Search</div>
+      <h3 id="viewerTitle"></h3>
+      <button id="fullscreenBtn">⛶ Full Screen</button>
+      <iframe id="viewerFrame" allowfullscreen></iframe>
+    </div>
+
+  </div>
+
+  <script>
+    const API_BASE = "https://pdfs_info_database.video-api-ajaiahar.workers.dev";
+
+    const home = document.getElementById("home");
+    const uploadPage = document.getElementById("uploadPage");
+    const viewerPage = document.getElementById("viewerPage");
+    const goUpload = document.getElementById("goUpload");
+    const goBack = document.getElementById("goBack");
+    const form = document.getElementById("uploadForm");
+    const message = document.getElementById("message");
+    const searchBtn = document.getElementById("searchBtn");
+    const searchInput = document.getElementById("searchInput");
+    const searchResults = document.getElementById("searchResults");
+    const viewerTitle = document.getElementById("viewerTitle");
+    const viewerFrame = document.getElementById("viewerFrame");
+    const backToSearch = document.getElementById("backToSearch");
+    const fullscreenBtn = document.getElementById("fullscreenBtn");
+
+    // Page Switch
+    goUpload.onclick = () => {
+      home.classList.add("hidden");
+      uploadPage.classList.remove("hidden");
+    };
+    goBack.onclick = () => {
+      uploadPage.classList.add("hidden");
+      home.classList.remove("hidden");
+    };
+    backToSearch.onclick = () => {
+      viewerPage.classList.add("hidden");
+      home.classList.remove("hidden");
+      viewerFrame.src = "";
+    };
+
+    // ✅ Handle Upload
+    form.onsubmit = async (e) => {
+      e.preventDefault();
+      message.textContent = "Uploading...";
+      message.className = "";
+
+      const archiveUrl = document.getElementById("archive_url").value.trim();
+
+      // 🔒 Allow only archive.org/details URLs
+      if (!archiveUrl.startsWith("https://archive.org/details/")) {
+        message.textContent = "❌ Only archive.org/details URLs are allowed.";
+        message.className = "error";
+        return;
+      }
+
+      const data = {
+        archive_url: archiveUrl,
+        title: document.getElementById("title").value.trim(),
+        username: document.getElementById("username").value.trim(),
+        phone_number: document.getElementById("phone_number").value.trim()
+      };
+
+      try {
+        const res = await fetch(`${API_BASE}/upload`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data)
+        });
+
+        const json = await res.json();
+        if (res.ok && json.success) {
+          message.textContent = "✅ Upload successful!";
+          message.className = "success";
+          form.reset();
+        } else {
+          message.textContent = `❌ Upload failed: ${json.error || "Server error"}`;
+          message.className = "error";
+        }
+      } catch {
+        message.textContent = "⚠️ Network error. Please try again.";
+        message.className = "error";
+      }
+    };
+
+    // ✅ Handle Search
+    searchBtn.onclick = async () => {
+      const query = searchInput.value.trim();
+      if (!query) return alert("Please enter title, username, or ID to search!");
+      searchResults.innerHTML = `<p>Searching...</p>`;
+
+      const payload = {};
+      if (/^\d+$/.test(query)) payload.id = Number(query);
+      else {
+        payload.title = query;
+        payload.username = query;
+      }
+
+      try {
+        const res = await fetch(`${API_BASE}/search`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+        if (!res.ok || !data || data.length === 0) {
+          searchResults.innerHTML = `<p style="color:#f87171;">No results found.</p>`;
+          return;
+        }
+
+        const results = Array.isArray(data) ? data : [data];
+        searchResults.innerHTML = results.map(item => `
+          <div class="result-card" data-url="${item.archive_url}" data-title="${item.title}">
+            <div class="result-title">${item.title || "Untitled"}</div>
+            <div class="result-meta">
+              👤 ${item.username || "Unknown"}<br>
+              🆔 ${item.id || ""}
+            </div>
+          </div>
+        `).join("");
+
+        // 🖼 Click to open viewer
+        document.querySelectorAll(".result-card").forEach(card => {
+          card.onclick = () => {
+            const url = card.dataset.url;
+            const title = card.dataset.title;
+            viewerTitle.textContent = title;
+
+            let viewerUrl = url;
+            if (url.includes("archive.org/details/")) {
+              viewerUrl = url.replace("/details/", "/embed/");
+            }
+
+            viewerFrame.src = viewerUrl;
+            home.classList.add("hidden");
+            viewerPage.classList.remove("hidden");
+          };
+        });
+
+      } catch (err) {
+        console.error(err);
+        searchResults.innerHTML = `<p style="color:#f87171;">⚠️ Error fetching results.</p>`;
+      }
+    };
+
+    // 🧭 Full Screen
+    fullscreenBtn.onclick = () => {
+      if (viewerFrame.requestFullscreen) viewerFrame.requestFullscreen();
+      else if (viewerFrame.webkitRequestFullscreen) viewerFrame.webkitRequestFullscreen();
+      else if (viewerFrame.msRequestFullscreen) viewerFrame.msRequestFullscreen();
+    };
+  </script>
+</body>
+</html>

@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Free PDFs Content</title>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&family=Pacifico&display=swap" rel="stylesheet">
+
+  <style>
+    body {
+      font-family: 'Poppins', sans-serif;
+      background: radial-gradient(circle at top left, #0f172a, #1e293b);
+      color: #f1f5f9;
+      min-height: 100vh;
+      overflow-x: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      scroll-behavior: smooth;
+    }
+
+    /* Glassmorphism */
+    .glass {
+      background: rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 1rem;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+      transition: all 0.3s ease-in-out;
+    }
+    .glass:hover {
+      transform: scale(1.01);
+      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
+    }
+
+    /* Fade & glow effects */
+    .fade-in {
+      opacity: 0;
+      transform: translateY(15px);
+      animation: fadeIn 0.9s ease-in-out forwards;
+    }
+    @keyframes fadeIn {
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .glow-text {
+      text-shadow: 0 0 10px #38bdf8, 0 0 20px #3b82f6, 0 0 40px #2563eb;
+      animation: glow 3s ease-in-out infinite alternate;
+    }
+    @keyframes glow {
+      from { text-shadow: 0 0 10px #3b82f6; }
+      to { text-shadow: 0 0 25px #60a5fa, 0 0 50px #3b82f6; }
+    }
+
+    .moving-text {
+      animation: moveText 5s linear infinite;
+    }
+    @keyframes moveText {
+      0% { transform: translateX(-10px); }
+      50% { transform: translateX(10px); }
+      100% { transform: translateX(-10px); }
+    }
+
+    iframe {
+      width: 100%;
+      border: none;
+      border-radius: 1rem;
+      overflow: hidden;
+      background: #0f172a;
+    }
+
+    /* === ULTRA-SLIM TRAIN ANIMATION (0.7 cm ≈ 26px) === */
+    .train-container {
+      position: relative;
+      width: 100%;
+      height: 26px;
+      perspective: 1000px;
+      overflow: hidden;
+      background: linear-gradient(180deg, #0f172a 0%, #1e293b 80%, #111827 100%);
+      border-radius: 0.75rem;
+      box-shadow: inset 0 0 20px rgba(59, 130, 246, 0.3);
+    }
+
+    .train-track {
+      position: absolute;
+      bottom: 5px;
+      left: 0;
+      width: 100%;
+      height: 2px;
+      background: repeating-linear-gradient(
+        90deg,
+        #60a5fa 0 20px,
+        transparent 20px 40px
+      );
+      animation: trackMove 1.5s linear infinite;
+    }
+    @keyframes trackMove {
+      from { background-position-x: 0; }
+      to { background-position-x: 40px; }
+    }
+
+    .train {
+      position: absolute;
+      bottom: 8px;
+      left: -150px;
+      display: flex;
+      transform: rotateY(8deg);
+      animation: trainMove 9s linear infinite;
+    }
+
+    @keyframes trainMove {
+      0% { left: -160px; }
+      50% { left: calc(100% - 100px); }
+      100% { left: -160px; }
+    }
+
+    .car {
+      width: 60px;
+      height: 15px;
+      background: linear-gradient(to bottom right, #3b82f6, #2563eb);
+      margin: 0 4px;
+      border-radius: 4px;
+      position: relative;
+      box-shadow: 0 3px 8px rgba(37, 99, 235, 0.4);
+      transform: skewX(-5deg);
+    }
+
+    .wheel {
+      position: absolute;
+      bottom: -4px;
+      width: 6px;
+      height: 6px;
+      background: #1e293b;
+      border: 2px solid #38bdf8;
+      border-radius: 50%;
+      animation: wheelSpin 0.5s linear infinite;
+    }
+    .wheel.left { left: 5px; }
+    .wheel.right { right: 5px; }
+
+    @keyframes wheelSpin {
+      100% { transform: rotate(360deg); }
+    }
+
+    /* MOBILE */
+    @media (max-width: 640px) {
+      h1 { font-size: 1.8rem; }
+      h2 { font-size: 1.25rem; }
+      iframe { height: 350px !important; }
+      .train-container { height: 22px; }
+      .car { width: 50px; height: 12px; }
+    }
+  </style>
+</head>
+
+<body class="p-4 sm:p-6 space-y-8">
+
+  <!-- HEADER -->
+  <header class="text-center fade-in mt-6">
+    <h1 class="text-4xl sm:text-5xl font-bold text-blue-400 glow-text flex justify-center items-center space-x-2">
+      <span>📚</span>
+      <span style="font-family:'Pacifico', cursive;">Free PDFs Content</span>
+      <span>✨</span>
+    </h1>
+
+    <p class="text-slate-400 text-sm sm:text-base mt-3 moving-text">
+      💖 Your satisfaction and privacy are our priority. Thanks for trusting our app!
+    </p>
+    <p class="text-blue-300 text-base sm:text-lg mt-2 glow-text">
+      Discover, Explore, and Enjoy Free PDFs 📄
+    </p>
+  </header>
+
+  <!-- SECTION 1: SEARCH & UPLOAD -->
+  <section id="metadata" class="w-full max-w-5xl glass p-6 fade-in">
+    <h2 class="text-2xl font-semibold text-blue-300 mb-4">🔍 Search & Upload Here</h2>
+    <iframe src="pdfs_metadata_frontend.html" class="h-[450px] bg-slate-900"></iframe>
+  </section>
+
+  <!-- SECTION 2: PDF DISPLAY + MINI TRAIN -->
+  <section id="pdfs" class="w-full max-w-5xl glass p-6 fade-in">
+    <h2 class="text-2xl font-semibold text-blue-300 mb-4">🚆 Enjoy the Journey of PDFs</h2>
+
+    <!-- Ultra-Slim Train Animation -->
+    <div class="train-container mb-4">
+      <div class="train-track"></div>
+      <div class="train">
+        <div class="car">
+          <div class="wheel left"></div>
+          <div class="wheel right"></div>
+        </div>
+        <div class="car">
+          <div class="wheel left"></div>
+          <div class="wheel right"></div>
+        </div>
+        <div class="car">
+          <div class="wheel left"></div>
+          <div class="wheel right"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Embedded PDF Display -->
+    <iframe src="pdfs_displaying_frontend.html" class="h-[500px] bg-slate-900"></iframe>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="text-slate-500 text-sm mt-8 fade-in text-center pb-6">
+    <p>© 2025 Free PDFs Content · Built with ❤️ by <span class="text-blue-400 font-semibold">YAN</span></p>
+  </footer>
+
+</body>
+</html>
