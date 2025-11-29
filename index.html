@@ -72,9 +72,29 @@
       border-radius: 1rem;
       overflow: hidden;
       background: #0f172a;
+      position: relative;
     }
 
-    /* === ULTRA-SLIM TRAIN ANIMATION (0.7 cm ≈ 26px) === */
+    /* Fullscreen button */
+    .fullscreen-btn {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background: rgba(59, 130, 246, 0.8);
+      border: none;
+      color: #fff;
+      padding: 4px 8px;
+      border-radius: 0.5rem;
+      cursor: pointer;
+      font-size: 16px;
+      z-index: 10;
+      transition: background 0.3s;
+    }
+    .fullscreen-btn:hover {
+      background: rgba(37, 99, 235, 0.9);
+    }
+
+    /* === ULTRA-SLIM TRAIN ANIMATION === */
     .train-container {
       position: relative;
       width: 100%;
@@ -177,13 +197,14 @@
   </header>
 
   <!-- SECTION 1: SEARCH & UPLOAD -->
-  <section id="metadata" class="w-full max-w-5xl glass p-6 fade-in">
+  <section id="metadata" class="w-full max-w-5xl glass p-6 fade-in relative">
     <h2 class="text-2xl font-semibold text-blue-300 mb-4">🔍 Search & Upload Here</h2>
-    <iframe src="pdfs_metadata_frontend.html" class="h-[450px] bg-slate-900"></iframe>
+    <button class="fullscreen-btn" onclick="openFullscreen('metadataIframe')">⛶</button>
+    <iframe id="metadataIframe" src="pdfs_metadata_frontend.html" class="h-[450px] bg-slate-900"></iframe>
   </section>
 
   <!-- SECTION 2: PDF DISPLAY + MINI TRAIN -->
-  <section id="pdfs" class="w-full max-w-5xl glass p-6 fade-in">
+  <section id="pdfs" class="w-full max-w-5xl glass p-6 fade-in relative">
     <h2 class="text-2xl font-semibold text-blue-300 mb-4">🚆 Enjoy the Journey of PDFs</h2>
 
     <!-- Ultra-Slim Train Animation -->
@@ -206,13 +227,27 @@
     </div>
 
     <!-- Embedded PDF Display -->
-    <iframe src="pdfs_displaying_frontend.html" class="h-[500px] bg-slate-900"></iframe>
+    <button class="fullscreen-btn" onclick="openFullscreen('pdfsIframe')">⛶</button>
+    <iframe id="pdfsIframe" src="pdfs_displaying_frontend.html" class="h-[500px] bg-slate-900"></iframe>
   </section>
 
   <!-- FOOTER -->
   <footer class="text-slate-500 text-sm mt-8 fade-in text-center pb-6">
     <p>© 2025 Free PDFs Content · Built with ❤️ by <span class="text-blue-400 font-semibold">YAN</span></p>
   </footer>
+
+  <script>
+    function openFullscreen(iframeId) {
+      const iframe = document.getElementById(iframeId);
+      if (iframe.requestFullscreen) {
+        iframe.requestFullscreen();
+      } else if (iframe.webkitRequestFullscreen) { /* Safari */
+        iframe.webkitRequestFullscreen();
+      } else if (iframe.msRequestFullscreen) { /* IE11 */
+        iframe.msRequestFullscreen();
+      }
+    }
+  </script>
 
 </body>
 </html>
