@@ -219,29 +219,26 @@
 
   <script>
     // ==== DOM references ====
-    const FEED = document.getElementById('feed');
-    const LOADER = document.getElementById('loader');
-    const VIEWER = document.getElementById('pdfViewer');
-    const PDF_FRAME = document.getElementById('pdfFrame');
-    const PDF_TITLE = document.getElementById('pdfTitle');
-    const CLOSE_VIEWER = document.getElementById('closeViewer');
+    const FEED          = document.getElementById('feed');
+    const LOADER        = document.getElementById('loader');
+    const VIEWER        = document.getElementById('pdfViewer');
+    const PDF_FRAME     = document.getElementById('pdfFrame');
+    const PDF_TITLE     = document.getElementById('pdfTitle');
+    const CLOSE_VIEWER  = document.getElementById('closeViewer');
 
     // ==== Configuration & state ====
-    const BACKEND_URL = 'https://pdfs_displaying_backend.video-api-ajaiahar.workers.dev';
-    let allData = [];
-    let currentIndex = 0;
-    const BATCH_SIZE = 30;
-    let loadingMore = false;
+    const BACKEND_URL   = 'https://pdfs_displaying_backend.video-api-ajaiahar.workers.dev';
+    let allData        = [];
+    let currentIndex   = 0;
+    const BATCH_SIZE   = 30;
+    let loadingMore    = false;
 
-    // Used to keep the title while we wait for the ad callback
-    let pendingTitle = null;
-    let pendingUrl   = null;
+    // ---- 1️⃣  Pending data used while the ad is shown ----
+    const pending = { title: null, url: null };
 
     // =====================================================================
-    // ------------- 1️⃣  AD CALLBACKS FROM THE NATIVE LAYER ---------------
+    // ------------- 2️⃣  AD CALLBACKS FROM THE NATIVE LAYER ---------------
     // =====================================================================
-    // These are called by the Android side via
-    // AndroidInterface.runJs("onAdCompleted('url')") etc.
     window.onAdPreloaded = function() {
       console.log('✅ Rewarded ad pre‑loaded');
     };
@@ -250,38 +247,34 @@
     };
     window.onAdNotAvailable = function() {
       console.warn('⚠️ Rewarded ad not available – opening PDF directly');
-      // fallback: open what the user wanted
-      if (pendingTitle && pendingUrl) {
-        openPDFViewer(pendingTitle, pendingUrl);
+      if (pending.title && pending.url) {
+        openPDFViewer(pending.title, pending.url);
         clearPending();
       }
     };
     window.onAdCompleted = function(targetUrl) {
       console.log('✅ Rewarded ad completed – opening PDF');
-      if (pendingTitle && targetUrl) {
-        openPDFViewer(pendingTitle, targetUrl);
-      } else if (targetUrl) {
-        // title was lost for some reason – still open the PDF
-        openPDFViewer('', targetUrl);
-      }
+      // `targetUrl` is the same URL we stored in `pending.url`,
+      // but we use the argument to avoid any mismatch.
+      openPDFViewer(pending.title || '', targetUrl);
       clearPending();
     };
     function clearPending() {
-      pendingTitle = null;
-      pendingUrl   = null;
+      pending.title = null;
+      pending.url   = null;
     }
 
     // =====================================================================
-    // ---------------- 2️⃣  PDF VIEWER LOGIC -------------------------------
+    // ---------------- 3️⃣  PDF VIEWER LOGIC -------------------------------
     // =====================================================================
-    /** Opens the fullscreen PDF viewer (already have embed URL). */
+    /** Show the fullscreen PDF viewer */
     function openPDFViewer(title, embedUrl) {
       PDF_TITLE.textContent = title || 'PDF Viewer';
       PDF_FRAME.src = embedUrl;
       VIEWER.classList.add('active');
     }
 
-    /** Called when the user taps the “Open PDF” button. */
+    /** Called when the user clicks “Open PDF”. */
     function openFullscreenPDF(title, url) {
       if (!url) return;
 
@@ -289,16 +282,15 @@
         ? url.replace('/details/', '/embed/')
         : url;
 
-      // Remember what we want to open – the native layer will call back.
-      pendingTitle = title;
-      pendingUrl   = embedUrl;
+      // Store data while we are waiting for the ad callback.
+      pending.title = title;
+      pending.url   = embedUrl;
 
-      // If we are running inside the Android WebView we ask it to show the ad.
       if (window.Android && typeof Android.requestRewardedAd === 'function') {
         console.log('🔔 Requesting rewarded ad before opening PDF');
         Android.requestRewardedAd(embedUrl);
       } else {
-        // No native bridge (e.g. testing in a desktop browser) → open directly.
+        // No bridge → just open the PDF.
         console.log('⚙️ No Android bridge – opening PDF without ad');
         openPDFViewer(title, embedUrl);
         clearPending();
@@ -306,11 +298,11 @@
     }
 
     // =====================================================================
-    // ------------------- 3️⃣  DATA FETCH & UI RENDER --------------------
+    // ------------------- 4️⃣  DATA FETCH & UI RENDER --------------------
     // =====================================================================
     async function fetchData() {
       try {
-        const res = await fetch(BACKEND_URL);
+        const res  = await fetch(BACKEND_URL);
         const data = await res.json();
         LOADER.style.display = 'none';
 
@@ -382,7 +374,7 @@
     }
 
     // =====================================================================
-    // -------------------- 4️⃣  VIEWER CLOSE LOGIC ------------------------
+    // -------------------- 5️⃣  VIEWER CLOSE LOGIC ------------------------
     // =====================================================================
     CLOSE_VIEWER.onclick = closeViewer;
     document.addEventListener('keydown', e => { if (e.key === 'Escape') closeViewer(); });
@@ -393,9 +385,8 @@
     }
 
     // =====================================================================
-    // ---------------------- 5️⃣  INITIALISATION -------------------------
+    // ---------------------- 6️⃣  INITIALISATION -------------------------
     // =====================================================================
-    // 1️⃣ Ask Android to preload a rewarded ad as soon as the bridge is ready.
     document.addEventListener('DOMContentLoaded', () => {
       if (window.Android && typeof Android.preloadRewardedAd === 'function') {
         console.log('🔧 Pre‑loading rewarded ad');
@@ -403,7 +394,7 @@
       } else {
         console.log('⚙️ Android bridge not present – ad functionality disabled.');
       }
-      // 2️⃣ Kick off loading of PDFs.
+
       fetchData();
     });
   </script>
