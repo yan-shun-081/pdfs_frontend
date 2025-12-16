@@ -361,21 +361,19 @@
     };
 
     // ==================== PDF Viewer Functions ====================
-    function getEmbedUrl(url) {
-      if (!url) return '';
-      if (url.includes('archive.org') && url.includes('/details/')) {
-        return url.replace('/details/', '/embed/');
-      }
-      return url;
-    }
-
     function openPdfViewer(title, url) {
       if (!url) return;
-      const embedUrl = getEmbedUrl(url);
+
       PDF_TITLE.textContent = title || 'PDF Viewer';
-      PDF_FRAME.src = embedUrl;
+
+      // Show viewer first
       VIEWER.classList.add('active');
       document.body.style.overflow = 'hidden';
+
+      // Delay iframe load (critical for Android WebView)
+      setTimeout(() => {
+        PDF_FRAME.src = url + (url.includes('?') ? '&' : '?') + 't=' + Date.now();
+      }, 150);
     }
 
     function closeViewer() {
@@ -412,8 +410,7 @@
       preview.className = 'preview';
 
       if (item.archive_url && item.archive_url.includes('archive.org')) {
-        const embedUrl = getEmbedUrl(item.archive_url);
-        preview.innerHTML = `<iframe src="${embedUrl}" allowfullscreen loading="lazy"></iframe>`;
+        preview.innerHTML = `<iframe src="${item.archive_url}" allowfullscreen loading="lazy"></iframe>`;
       } else {
         preview.innerHTML = `
           <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
