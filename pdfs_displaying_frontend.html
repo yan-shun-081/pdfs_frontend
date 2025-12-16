@@ -216,25 +216,25 @@
 
   <script>
     // ==== DOM references ====
-    const FEED          = document.getElementById('feed');
-    const LOADER        = document.getElementById('loader');
-    const VIEWER        = document.getElementById('pdfViewer');
-    const PDF_FRAME     = document.getElementById('pdfFrame');
-    const PDF_TITLE     = document.getElementById('pdfTitle');
-    const CLOSE_VIEWER  = document.getElementById('closeViewer');
+    const FEED         = document.getElementById('feed');
+    const LOADER       = document.getElementById('loader');
+    const VIEWER       = document.getElementById('pdfViewer');
+    const PDF_FRAME    = document.getElementById('pdfFrame');
+    const PDF_TITLE    = document.getElementById('pdfTitle');
+    const CLOSE_VIEWER = document.getElementById('closeViewer');
 
-    // ==== Configuration & state ====
-    const BACKEND_URL   = 'https://pdfs_displaying_backend.video-api-ajaiahar.workers.dev';
-    let allData        = [];
-    let currentIndex   = 0;
-    const BATCH_SIZE   = 30;
-    let loadingMore    = false;
+    // ==== Config & state ====
+    const BACKEND_URL = 'https://pdfs_displaying_backend.video-api-ajaiahar.workers.dev';
+    let allData = [];
+    let currentIndex = 0;
+    const BATCH_SIZE = 30;
+    let loadingMore = false;
 
-    // ---- 1️⃣  Pending data used while the ad is shown ----
+    // ---- Pending data while the ad is being shown ----
     const pending = { title: null, url: null };
 
     // =====================================================================
-    // ------------- 2️⃣  AD CALLBACKS FROM THE NATIVE LAYER ---------------
+    // ------------- 1️⃣  AD CALLBACKS FROM THE NATIVE LAYER ---------------
     // =====================================================================
     window.onAdPreloaded = function () {
       console.log('✅ Rewarded ad pre‑loaded');
@@ -249,13 +249,16 @@
       }
       clearPending();
     };
-    // The Android side calls this with the URL as a parameter, but we already have it saved
-    window.onAdCompleted = function (/*targetUrl*/) {
+    // The native side now passes the URL as a parameter; we use it directly.
+    window.onAdCompleted = function (targetUrl) {
       console.log('✅ Rewarded ad completed – opening PDF');
-      if (pending.title && pending.url) {
-        openPDFViewer(pending.title, pending.url);
+      // `targetUrl` is the embed URL we asked the native side to show.
+      if (pending.title) {
+        // Use the title we stored earlier; use the URL from the callback.
+        openPDFViewer(pending.title, targetUrl);
       } else {
-        console.warn('⚠️ Pending PDF data missing – cannot open PDF');
+        // Fallback – title missing.
+        openPDFViewer('PDF Viewer', targetUrl);
       }
       clearPending();
     };
@@ -265,15 +268,15 @@
     }
 
     // =====================================================================
-    // ---------------- 3️⃣  PDF VIEWER LOGIC -------------------------------
+    // ---------------- 2️⃣  PDF VIEWER LOGIC -------------------------------
     // =====================================================================
-    /** Show the fullscreen PDF viewer (and request native OS fullscreen) */
+    /** Show the fullscreen PDF viewer (and request OS fullscreen) */
     function openPDFViewer(title, embedUrl) {
       PDF_TITLE.textContent = title || 'PDF Viewer';
       PDF_FRAME.src = embedUrl;
       VIEWER.classList.add('active');
 
-      // ---- request native fullscreen (if the platform allows it) ----
+      // ---- request native fullscreen (if supported) ----
       const el = VIEWER;
       const requestFs = el.requestFullscreen ||
                         el.webkitRequestFullscreen ||
@@ -283,7 +286,7 @@
         requestFs.call(el).catch(err => console.warn('Fullscreen request failed', err));
       }
 
-      // Prevent background page scrolling while the viewer is shown
+      // Prevent background page scrolling while viewer is visible
       document.body.style.overflow = 'hidden';
     }
 
@@ -295,7 +298,7 @@
         ? url.replace('/details/', '/embed/')
         : url;
 
-      // Save data while we wait for the ad callbacks
+      // Store data while we wait for the ad callbacks
       pending.title = title;
       pending.url   = embedUrl;
 
@@ -320,10 +323,11 @@
                     document.webkitExitFullscreen ||
                     document.mozCancelFullScreen ||
                     document.msExitFullscreen;
-      if (exitFs && (document.fullscreenElement ||
-                     document.webkitFullscreenElement ||
-                     document.mozFullScreenElement ||
-                     document.msFullscreenElement)) {
+      if (exitFs &&
+          (document.fullscreenElement ||
+           document.webkitFullscreenElement ||
+           document.mozFullScreenElement ||
+           document.msFullscreenElement)) {
         exitFs.call(document).catch(err => console.warn('Exit fullscreen failed', err));
       }
 
@@ -332,7 +336,7 @@
     }
 
     // =====================================================================
-    // ------------------- 4️⃣  DATA FETCH & UI RENDER --------------------
+    // ------------------- 3️⃣  DATA FETCH & UI RENDER --------------------
     // =====================================================================
     async function fetchData() {
       try {
@@ -408,13 +412,13 @@
     }
 
     // =====================================================================
-    // -------------------- 5️⃣  VIEWER CLOSE LOGIC ------------------------
+    // -------------------- 4️⃣  VIEWER CLOSE LOGIC ------------------------
     // =====================================================================
     CLOSE_VIEWER.onclick = closeViewer;
     document.addEventListener('keydown', e => { if (e.key === 'Escape') closeViewer(); });
 
     // =====================================================================
-    // ---------------------- 6️⃣  INITIALISATION -------------------------
+    // ---------------------- 5️⃣  INITIALISATION -------------------------
     // =====================================================================
     document.addEventListener('DOMContentLoaded', () => {
       if (window.Android && typeof Android.preloadRewardedAd === 'function') {
