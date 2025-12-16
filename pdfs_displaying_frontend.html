@@ -236,24 +236,27 @@
     // =====================================================================
     // ------------- 2️⃣  AD CALLBACKS FROM THE NATIVE LAYER ---------------
     // =====================================================================
-    window.onAdPreloaded = function() {
+    window.onAdPreloaded = function () {
       console.log('✅ Rewarded ad pre‑loaded');
     };
-    window.onAdFailedToPreload = function() {
+    window.onAdFailedToPreload = function () {
       console.warn('⚠️ Rewarded ad failed to preload');
     };
-    window.onAdNotAvailable = function() {
+    window.onAdNotAvailable = function () {
       console.warn('⚠️ Rewarded ad not available – opening PDF directly');
       if (pending.title && pending.url) {
         openPDFViewer(pending.title, pending.url);
-        clearPending();
       }
+      clearPending();
     };
-    window.onAdCompleted = function(targetUrl) {
+    // The Android side calls this with the URL as a parameter, but we already have it saved
+    window.onAdCompleted = function (/*targetUrl*/) {
       console.log('✅ Rewarded ad completed – opening PDF');
-      // `targetUrl` should be identical to pending.url, but we use the arg
-      // to avoid an unexpected mismatch.
-      openPDFViewer(pending.title || '', targetUrl);
+      if (pending.title && pending.url) {
+        openPDFViewer(pending.title, pending.url);
+      } else {
+        console.warn('⚠️ Pending PDF data missing – cannot open PDF');
+      }
       clearPending();
     };
     function clearPending() {
@@ -264,13 +267,13 @@
     // =====================================================================
     // ---------------- 3️⃣  PDF VIEWER LOGIC -------------------------------
     // =====================================================================
-    /** Show the fullscreen PDF viewer (and request true OS fullscreen) */
+    /** Show the fullscreen PDF viewer (and request native OS fullscreen) */
     function openPDFViewer(title, embedUrl) {
       PDF_TITLE.textContent = title || 'PDF Viewer';
       PDF_FRAME.src = embedUrl;
       VIEWER.classList.add('active');
 
-      // ------------ request native fullscreen ------------
+      // ---- request native fullscreen (if the platform allows it) ----
       const el = VIEWER;
       const requestFs = el.requestFullscreen ||
                         el.webkitRequestFullscreen ||
@@ -284,7 +287,7 @@
       document.body.style.overflow = 'hidden';
     }
 
-    /** Called when the user clicks “Open PDF”. */
+    /** Called when the user taps “Open PDF”. */
     function openFullscreenPDF(title, url) {
       if (!url) return;
 
@@ -292,7 +295,7 @@
         ? url.replace('/details/', '/embed/')
         : url;
 
-      // Store info while waiting for the ad callbacks
+      // Save data while we wait for the ad callbacks
       pending.title = title;
       pending.url   = embedUrl;
 
@@ -300,23 +303,23 @@
         console.log('🔔 Requesting rewarded ad before opening PDF');
         Android.requestRewardedAd(embedUrl);
       } else {
-        // No Android bridge → open directly
+        // No bridge – open immediately
         console.log('⚙️ No Android bridge – opening PDF without ad');
         openPDFViewer(title, embedUrl);
         clearPending();
       }
     }
 
-    /** Close the PDF viewer and exit fullscreen if we are in it */
+    /** Close the PDF viewer and exit fullscreen (if we entered it) */
     function closeViewer() {
       VIEWER.classList.remove('active');
       PDF_FRAME.src = '';
 
-      // ------------ exit native fullscreen ------------
+      // ---- exit native fullscreen ----
       const exitFs = document.exitFullscreen ||
-                     document.webkitExitFullscreen ||
-                     document.mozCancelFullScreen ||
-                     document.msExitFullscreen;
+                    document.webkitExitFullscreen ||
+                    document.mozCancelFullScreen ||
+                    document.msExitFullscreen;
       if (exitFs && (document.fullscreenElement ||
                      document.webkitFullscreenElement ||
                      document.mozFullScreenElement ||
