@@ -1,343 +1,401 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8"/>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>📚 PDF Stream</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>📚 PDF Stream</title>
 
-    <!-- Font -->
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap"
-          rel="stylesheet">
+  <!-- Font -->
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
 
-    <style>
-        *{box-sizing:border-box;margin:0;padding:0}
-        body{
-            font-family:'Poppins',sans-serif;
-            background:linear-gradient(135deg,#0f172a,#1e293b);
-            color:#fff;
-            min-height:100vh;
-            display:flex;
-            flex-direction:column;
-            align-items:center;
-            padding-bottom:40px;
-        }
-        header{
-            width:100%;padding:16px;text-align:center;
-            background:rgba(255,255,255,.08);
-            backdrop-filter:blur(12px);
-            box-shadow:0 4px 20px rgba(0,0,0,.3);
-            font-size:1.5em;font-weight:600;
-            color:#60a5fa;letter-spacing:1px;
-        }
-        #feed{
-            display:grid;
-            grid-template-columns:repeat(auto-fit,minmax(240px,1fr));
-            gap:16px;width:92%;max-width:1300px;margin-top:24px;
-        }
-        .card{
-            background:rgba(255,255,255,.08);
-            border-radius:16px;
-            padding:14px;
-            display:flex;
-            flex-direction:column;
-            transition:transform .25s ease,box-shadow .25s ease;
-        }
-        .card:hover{
-            transform:translateY(-4px);
-            box-shadow:0 8px 20px rgba(0,0,0,.4);
-        }
-        .preview{
-            width:100%;aspect-ratio:16/9;
-            border-radius:12px;
-            overflow:hidden;
-            background:#1e293b;
-            display:flex;
-            align-items:center;justify-content:center;
-            color:#94a3b8;font-size:.9em;
-        }
-        .preview iframe{width:100%;height:100%;border:none}
-        .info{margin-top:10px}
-        .title{
-            font-size:1em;font-weight:600;
-            color:#f8fafc;margin-bottom:4px;
-            line-height:1.4;word-break:break-word;
-        }
-        .meta{
-            font-size:.85em;color:#94a3b8;
-            word-break:break-word;
-        }
-        .open-btn{
-            margin-top:10px;
-            background:#60a5fa;color:#fff;
-            border:none;border-radius:8px;
-            padding:10px;font-weight:500;
-            cursor:pointer;transition:background .25s ease;
-            font-size:.95em;
-        }
-        .open-btn:hover{background:#3b82f6}
-        footer{
-            margin-top:30px;color:#94a3b8;
-            font-size:.9em;text-align:center;
-        }
-        .loader{
-            margin-top:60px;
-            border:6px solid rgba(255,255,255,.2);
-            border-top:6px solid #60a5fa;
-            border-radius:50%;width:45px;height:45px;
-            animation:spin 1s linear infinite;
-        }
-        @keyframes spin{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}
-        .pdf-viewer{
-            position:fixed;top:0;left:0;
-            width:100vw;height:100vh;
-            background:#0f172a;
-            z-index:999;
-            display:none;
-            flex-direction:column;
-        }
-        .pdf-viewer.active{display:flex}
-        .pdf-toolbar{
-            display:flex;justify-content:space-between;
-            align-items:center;padding:10px 14px;
-            background:rgba(15,23,42,.9);
-            border-bottom:1px solid rgba(255,255,255,.1);
-        }
-        .pdf-toolbar h2{
-            font-size:1em;color:#93c5fd;
-            font-weight:500;overflow:hidden;
-            text-overflow:ellipsis;white-space:nowrap;
-            max-width:80%;
-        }
-        .close-full{
-            background:#ef4444;border:none;color:#fff;
-            font-size:1.2em;width:36px;height:36px;
-            border-radius:50%;cursor:pointer;
-            transition:background .25s ease;
-        }
-        .close-full:hover{background:#dc2626}
-        .pdf-iframe{
-            flex-grow:1;border:none;width:100%;height:100%;
-        }
-        @media(max-width:768px){
-            header{font-size:1.3em;padding:12px}
-            .open-btn{font-size:.9em;padding:8px}
-            .meta{font-size:.8em}
-        }
-        @media(max-width:480px){
-            #feed{width:96%;gap:12px}
-            .card{padding:10px}
-            .preview{aspect-ratio:4/3}
-            .title{font-size:.95em}
-            .pdf-toolbar h2{font-size:.9em}
-            .close-full{width:32px;height:32px;font-size:1em}
-        }
-    </style>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Poppins', sans-serif;
+      background: linear-gradient(135deg, #0f172a, #1e293b);
+      color: #fff;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding-bottom: 40px;
+    }
+
+    header {
+      width: 100%;
+      padding: 16px;
+      text-align: center;
+      background: rgba(255,255,255,0.08);
+      backdrop-filter: blur(12px);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+      font-size: 1.5em;
+      font-weight: 600;
+      color: #60a5fa;
+      letter-spacing: 1px;
+    }
+
+    #feed {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px,1fr));
+      gap: 16px;
+      width: 92%;
+      max-width: 1300px;
+      margin-top: 24px;
+    }
+
+    .card {
+      background: rgba(255,255,255,0.08);
+      border-radius: 16px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      transition: transform .25s ease, box-shadow .25s ease;
+    }
+
+    .card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+    }
+
+    .preview {
+      width: 100%;
+      aspect-ratio: 16/9;
+      border-radius: 12px;
+      overflow: hidden;
+      background: #1e293b;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #94a3b8;
+      font-size: .9em;
+    }
+
+    .preview iframe { width:100%; height:100%; border:none; }
+
+    .info { margin-top:10px; }
+
+    .title {
+      font-size:1em; font-weight:600; color:#f8fafc;
+      margin-bottom:4px; line-height:1.4;
+      word-break:break-word;
+    }
+
+    .meta {
+      font-size:.85em; color:#94a3b8;
+      word-break:break-word;
+    }
+
+    .open-btn {
+      margin-top:10px;
+      background:#60a5fa; color:#fff; border:none;
+      border-radius:8px; padding:10px;
+      font-weight:500; cursor:pointer;
+      transition:background .25s ease;
+      font-size:.95em;
+    }
+
+    .open-btn:hover { background:#3b82f6; }
+
+    footer {
+      margin-top:30px; color:#94a3b8;
+      font-size:.9em; text-align:center;
+    }
+
+    .loader {
+      margin-top:60px;
+      border:6px solid rgba(255,255,255,.2);
+      border-top:6px solid #60a5fa;
+      border-radius:50%; width:45px; height:45px;
+      animation:spin 1s linear infinite;
+    }
+
+    @keyframes spin { from{transform:rotate(0)} to{transform:rotate(360deg)} }
+
+    /* Full‑screen PDF viewer */
+    .pdf-viewer {
+      position:fixed; top:0; left:0;
+      width:100vw; height:100vh;
+      background:#0f172a;
+      z-index:999; display:none;
+      flex-direction:column;
+    }
+    .pdf-viewer.active { display:flex; }
+
+    .pdf-toolbar {
+      display:flex; justify-content:space-between;
+      align-items:center;
+      padding:10px 14px;
+      background:rgba(15,23,42,.9);
+      border-bottom:1px solid rgba(255,255,255,.1);
+    }
+    .pdf-toolbar h2 {
+      font-size:1em; color:#93c5fd;
+      font-weight:500; overflow:hidden;
+      text-overflow:ellipsis; white-space:nowrap;
+      max-width:80%;
+    }
+    .close-full {
+      background:#ef4444; border:none; color:#fff;
+      font-size:1.2em; width:36px; height:36px;
+      border-radius:50%; cursor:pointer;
+      transition:background .25s ease;
+    }
+    .close-full:hover { background:#dc2626; }
+
+    /* Ad container (height adjustable) */
+    #adContainer {
+      width:100%;
+      height:250px;
+      background:#1e293b;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      color:#94a3b8;
+      font-size:.95em;
+    }
+
+    .pdf-iframe {
+      flex-grow:1; border:none;
+      width:100%; height:100%;
+    }
+
+    @media (max-width:768px) {
+      header {font-size:1.3em; padding:12px;}
+      .open-btn {font-size:.9em; padding:8px;}
+      .meta {font-size:.8em;}
+    }
+    @media (max-width:480px) {
+      #feed {width:96%; gap:12px;}
+      .card {padding:10px;}
+      .preview {aspect-ratio:4/3;}
+      .title {font-size:.95em;}
+      .pdf-toolbar h2 {font-size:.9em;}
+      .close-full {width:32px; height:32px; font-size:1em;}
+    }
+  </style>
 </head>
 
 <body>
-<header>📚 PDF Stream</header>
-<div id="feed"></div>
-<div id="loader" class="loader"></div>
-<footer>Powered by Archive &amp; Your Backend</footer>
+  <header>📚 PDF Stream</header>
+  <div id="feed"></div>
+  <div id="loader" class="loader"></div>
+  <footer>Powered by Archive & Your Backend</footer>
 
-<!-- Full‑screen PDF viewer -->
-<div id="pdfViewer" class="pdf-viewer">
+  <!-- Full‑screen PDF + Rewarded‑Ad Viewer -->
+  <div id="pdfViewer" class="pdf-viewer">
     <div class="pdf-toolbar">
-        <h2 id="pdfTitle">PDF Viewer</h2>
-        <button class="close-full" id="closeViewer">&times;</button>
+      <h2 id="pdfTitle">PDF Viewer</h2>
+      <button class="close-full" id="closeViewer">&times;</button>
     </div>
+
+    <!-- Rewarded‑ad placeholder (native ad or fallback video) -->
+    <div id="adContainer"></div>
+
+    <!-- PDF -->
     <iframe id="pdfFrame" class="pdf-iframe" src=""></iframe>
-</div>
+  </div>
 
-<script>
-/* --------------------------------------------------------------
- * Global references & constants
- * ------------------------------------------------------------ */
-const FEED          = document.getElementById('feed');
-const LOADER        = document.getElementById('loader');
-const VIEWER        = document.getElementById('pdfViewer');
-const PDF_FRAME     = document.getElementById('pdfFrame');
-const PDF_TITLE     = document.getElementById('pdfTitle');
-const CLOSE_VIEWER  = document.getElementById('closeViewer');
+  <script>
+    /* --------------------------------------------------------------
+       Global DOM references
+    -------------------------------------------------------------- */
+    const FEED        = document.getElementById('feed');
+    const LOADER      = document.getElementById('loader');
+    const VIEWER      = document.getElementById('pdfViewer');
+    const PDF_FRAME   = document.getElementById('pdfFrame');
+    const PDF_TITLE   = document.getElementById('pdfTitle');
+    const CLOSE_VIEW  = document.getElementById('closeViewer');
+    const AD_CONTAINER= document.getElementById('adContainer');
 
-const BACKEND_URL   = 'https://pdfs_displaying_backend.video-api-ajaiahar.workers.dev';
+    const BACKEND_URL = 'https://pdfs_displaying_backend.video-api-ajaiahar.workers.dev';
+    let allData = [];
+    let currentIndex = 0;
+    const BATCH_SIZE = 30;
+    let loadingMore = false;
 
-let allData        = [];
-let currentIndex   = 0;
-const BATCH_SIZE   = 30;
-let loadingMore    = false;
-
-/* The most‑recent PDF the user asked to open (title + embed URL). */
-let pendingPdf = null;
-
-/* --------------------------------------------------------------
- * Data loading
- * ------------------------------------------------------------ */
-async function fetchData() {
-    try {
+    /* --------------------------------------------------------------
+       1️⃣  FETCH DATA FROM BACKEND
+    -------------------------------------------------------------- */
+    async function fetchData() {
+      try {
         const res  = await fetch(BACKEND_URL);
         const data = await res.json();
         LOADER.style.display = 'none';
 
-        if (!data || data.length === 0) {
-            FEED.innerHTML = "<p style='text-align:center;color:#94a3b8'>No PDFs found 😢</p>";
-            return;
+        if (!Array.isArray(data) || data.length === 0) {
+          FEED.innerHTML = "<p style='text-align:center;color:#94a3b8'>No PDFs found 😢</p>";
+          return;
         }
 
-        // newest first
-        allData = data.sort((a, b) => Number(b.id) - Number(a.id));
+        // newest first (assuming numeric id)
+        allData = data.sort((a,b)=>Number(b.id) - Number(a.id));
         loadNextBatch();
-
-        /* Pre‑load the rewarded ad as soon as UI is ready */
-        if (window.Android && typeof Android.preloadRewardedAd === 'function') {
-            Android.preloadRewardedAd();
-        }
-
         window.addEventListener('scroll', handleScroll);
-    } catch (err) {
+      } catch(err) {
         LOADER.style.display = 'none';
         FEED.innerHTML = "<p style='text-align:center;color:#f87171'>Error loading data 😞</p>";
         console.error(err);
+      }
     }
-}
 
-/* --------------------------------------------------------------
- * Batch rendering
- * ------------------------------------------------------------ */
-function loadNextBatch() {
-    if (loadingMore) return;
-    loadingMore = true;
+    /* --------------------------------------------------------------
+       2️⃣  LOAD A BATCH OF CARDS
+    -------------------------------------------------------------- */
+    function loadNextBatch() {
+      if (loadingMore) return;
+      loadingMore = true;
 
-    const nextBatch = allData.slice(currentIndex, currentIndex + BATCH_SIZE);
-    nextBatch.forEach(item => createCard(item));
+      const next = allData.slice(currentIndex, currentIndex + BATCH_SIZE);
+      next.forEach(createCard);
+      currentIndex += BATCH_SIZE;
+      loadingMore = false;
 
-    currentIndex += BATCH_SIZE;
-    loadingMore = false;
-
-    if (currentIndex >= allData.length) {
+      if (currentIndex >= allData.length) {
         window.removeEventListener('scroll', handleScroll);
+      }
     }
-}
 
-/* --------------------------------------------------------------
- * UI – card creation
- * ------------------------------------------------------------ */
-function createCard(item) {
-    const card = document.createElement('div');
-    card.className = 'card';
+    /* --------------------------------------------------------------
+       3️⃣  CREATE A CARD FOR ONE ITEM
+    -------------------------------------------------------------- */
+    function createCard(item) {
+      const card = document.createElement('div');
+      card.className = 'card';
 
-    const preview = document.createElement('div');
-    preview.className = 'preview';
-
-    if (item.archive_url && item.archive_url.includes('archive.org')) {
+      // ----- preview -----
+      const preview = document.createElement('div');
+      preview.className = 'preview';
+      if (item.archive_url && item.archive_url.includes('archive.org')) {
         const embedUrl = item.archive_url.replace('/details/', '/embed/');
         preview.innerHTML = `<iframe src="${embedUrl}" allowfullscreen></iframe>`;
-    } else {
+      } else {
         preview.textContent = 'No Preview Available';
+      }
+
+      // ----- info -----
+      const info = document.createElement('div');
+      info.className = 'info';
+      info.innerHTML = `
+        <div class="title">${item.title ? item.title : 'Untitled PDF'}</div>
+        <div class="meta">👤 ${item.username ? item.username : 'Anonymous'} • 🆔 ${item.id ? item.id : 'N/A'}</div>
+      `;
+
+      // ----- open button -----
+      const btn = document.createElement('button');
+      btn.className = 'open-btn';
+      btn.textContent = 'Open PDF';
+      btn.onclick = () => openPDFWithRewardedAd(item.title, item.archive_url);
+
+      // assemble
+      card.append(preview, info, btn);
+      FEED.appendChild(card);
     }
 
-    const info = document.createElement('div');
-    info.className = 'info';
-    info.innerHTML = `
-        <div class="title">${item.title || 'Untitled PDF'}</div>
-        <div class="meta">👤 ${item.username || 'Anonymous'} • 🆔 ${item.id || 'N/A'}</div>
-    `;
-
-    const openBtn = document.createElement('button');
-    openBtn.className = 'open-btn';
-    openBtn.textContent = 'Open PDF';
-    openBtn.onclick = () => openFullscreenPDF(item.title, item.archive_url);
-
-    card.append(preview, info, openBtn);
-    FEED.appendChild(card);
-}
-
-/* --------------------------------------------------------------
- * Infinite‑scroll handler
- * ------------------------------------------------------------ */
-function handleScroll() {
-    const { scrollTop, scrollHeight, clientHeight } = document.documentElement;
-    if (scrollTop + clientHeight >= scrollHeight - 10) {
+    /* --------------------------------------------------------------
+       4️⃣  INFINITE‑SCROLL HANDLER
+    -------------------------------------------------------------- */
+    function handleScroll() {
+      const { scrollTop, scrollHeight, clientHeight } = document.documentElement;
+      if (scrollTop + clientHeight >= scrollHeight - 10) {
         loadNextBatch();
-    }
-}
-
-/* --------------------------------------------------------------
- * Show PDF (no native code required)
- * ------------------------------------------------------------ */
-function showPdf(data) {
-    PDF_TITLE.textContent = data.title;
-    PDF_FRAME.src = data.url;
-    VIEWER.classList.add('active');
-}
-
-/* --------------------------------------------------------------
- * Click → open PDF first, then request rewarded ad
- * ------------------------------------------------------------ */
-function openFullscreenPDF(title, rawUrl) {
-    if (!rawUrl) {
-        console.warn('No archive URL for this item');
-        return;
+      }
     }
 
-    const embedUrl = rawUrl.includes('archive.org')
-        ? rawUrl.replace('/details/', '/embed/')
-        : rawUrl;
+    /* --------------------------------------------------------------
+       5️⃣  OPEN PDF + PLAY REWARDED AD IN PARALLEL
+    -------------------------------------------------------------- */
+    function openPDFWithRewardedAd(title, url) {
+      if (!url) return;
 
-    // remember the most‑recent PDF – *do not* delete it yet
-    pendingPdf = {
-        title: title || 'PDF Viewer',
-        url:   embedUrl
-    };
+      // build embed URL (archive.org → /embed/)
+      const embedUrl = url.includes('archive.org')
+        ? url.replace('/details/', '/embed/')
+        : url;
 
-    // 1️⃣ Show the PDF immediately
-    showPdf(pendingPdf);
+      // show viewer + PDF
+      PDF_TITLE.textContent = title || 'PDF Viewer';
+      PDF_FRAME.src = embedUrl;
+      VIEWER.classList.add('active');
 
-    // 2️⃣ Ask the native side to play a rewarded ad (if one exists)
-    if (window.Android && typeof Android.requestRewardedAd === 'function') {
-        Android.requestRewardedAd();          // overload without argument exists
-    } else {
-        console.warn('Android bridge not available – ad will not be shown');
+      // ask native side for a rewarded ad
+      requestNativeRewardedAd();
+
+      // if we are not inside an Android WebView, fall back to a simple video
+      if (!hasNativeBridge()) {
+        loadFallbackRewardedVideo();
+      }
     }
-}
 
-/* --------------------------------------------------------------
- * Callbacks invoked from the Android side
- * ------------------------------------------------------------ */
-function onAdCompleted(_ignored) {
-    // The ad finished – re‑show the *latest* PDF (may simply be a refresh)
-    if (pendingPdf) {
-        showPdf(pendingPdf);
-    } else {
-        console.warn('No pending PDF when ad completed');
+    /* --------------------------------------------------------------
+       6️⃣  SIMPLE NATIVE‑BRIDGE DETECTION (Android only)
+    -------------------------------------------------------------- */
+    function hasNativeBridge() {
+      return (typeof window.Android !== 'undefined' &&
+              typeof window.Android.requestRewardedAd === 'function');
     }
-}
 
-/* If there is no ad (or it fails to show) we simply keep the PDF already on screen */
-function onAdNotAvailable() {
-    console.info('Rewarded ad not available – PDF stays open');
-}
+    /* --------------------------------------------------------------
+       7️⃣  REQUEST REWARDED AD FROM Android
+    -------------------------------------------------------------- */
+    function requestNativeRewardedAd() {
+      if (window.Android && typeof window.Android.requestRewardedAd === 'function') {
+        window.Android.requestRewardedAd("pdf_open");
+      } else {
+        console.warn("Native rewarded ad bridge not available");
+      }
+    }
 
-/* Optional – just for debugging */
-function onAdPreloaded()   { console.log('Rewarded ad pre‑loaded'); }
-function onAdFailedToPreload(){ console.warn('Failed to pre‑load rewarded ad'); }
+    /* --------------------------------------------------------------
+       8️⃣  FALLBACK REWARDED VIDEO (HTML5) – used when no native bridge
+    -------------------------------------------------------------- */
+    function loadFallbackRewardedVideo() {
+      AD_CONTAINER.innerHTML = `
+        <video id="fallbackAdVideo" style="width:100%;height:100%" autoplay muted playsinline>
+          <source src="https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4" type="video/mp4">
+        </video>
+      `;
 
-/* --------------------------------------------------------------
- * Viewer controls
- * ------------------------------------------------------------ */
-CLOSE_VIEWER.onclick = closeViewer;
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeViewer(); });
+      const video = document.getElementById('fallbackAdVideo');
+      video.addEventListener('ended', () => {
+        // treat fallback video as a successful rewarded ad
+        onAdCompleted('fallback');
+      });
+    }
 
-function closeViewer() {
-    VIEWER.classList.remove('active');
-    PDF_FRAME.src = '';
-    pendingPdf = null;
-}
+    /* --------------------------------------------------------------
+       9️⃣  CALLBACKS THAT WILL BE INVOKED BY THE ANDROID CODE
+    -------------------------------------------------------------- */
+    // Called when the rewarded ad finishes successfully
+    function onAdCompleted(tag) {
+      console.log("✅ Rewarded ad completed:", tag);
+      AD_CONTAINER.innerHTML =
+        "<p style='color:#94a3b8'>👍 Thanks for watching! Enjoy your PDF.</p>";
+    }
 
-/* --------------------------------------------------------------
- * Kick‑off
- * ------------------------------------------------------------ */
-fetchData();
-</script>
+    // Called when the ad is not available (e.g. not loaded yet)
+    function onAdNotAvailable() {
+      console.log("⚠️ Rewarded ad not available");
+      AD_CONTAINER.innerHTML =
+        "<p style='color:#f87171'>Ad not available. Please try later.</p>";
+    }
+
+    /* --------------------------------------------------------------
+       🔟  CLOSE VIEWER (clears PDF + ad)
+    -------------------------------------------------------------- */
+    function closeViewer() {
+      VIEWER.classList.remove('active');
+      PDF_FRAME.src = '';
+      AD_CONTAINER.innerHTML = '';
+    }
+
+    CLOSE_VIEW.addEventListener('click', closeViewer);
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeViewer(); });
+
+    /* --------------------------------------------------------------
+       1️⃣1️⃣  BOOTSTRAP
+    -------------------------------------------------------------- */
+    fetchData();
+  </script>
 </body>
 </html>
