@@ -131,15 +131,18 @@
       100% { transform: rotate(360deg); }
     }
 
-    /* ----------  FULL‑SCREEN PDF VIEWER (CSS only) ---------- */
     .pdf-viewer {
       position: fixed;
-      inset: 0;               /* top, left, right, bottom = 0 */
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
       background: #0f172a;
-      z-index: 9999;
+      z-index: 999;
       display: none;
       flex-direction: column;
     }
+
     .pdf-viewer.active { display: flex; }
 
     .pdf-toolbar {
@@ -203,9 +206,9 @@
   <header>📚 PDF Stream</header>
   <div id="feed"></div>
   <div id="loader" class="loader"></div>
-  <footer>Powered by Archive & Your Backend</footer>
+  <footer>Powered by Archive &amp; Your Backend</footer>
 
-  <!-- Fullscreen PDF Viewer (CSS overlay) -->
+  <!-- Fullscreen PDF Viewer -->
   <div id="pdfViewer" class="pdf-viewer">
     <div class="pdf-toolbar">
       <h2 id="pdfTitle">PDF Viewer</h2>
@@ -215,121 +218,106 @@
   </div>
 
   <script>
-    // --------------------------------------------------------------
-    // DOM references
-    // --------------------------------------------------------------
-    const FEED         = document.getElementById('feed');
-    const LOADER       = document.getElementById('loader');
-    const VIEWER       = document.getElementById('pdfViewer');
-    const PDF_FRAME    = document.getElementById('pdfFrame');
-    const PDF_TITLE    = document.getElementById('pdfTitle');
+    // -----------------------------------------------------------------
+    // UI / DOM references
+    // -----------------------------------------------------------------
+    const FEED       = document.getElementById('feed');
+    const LOADER     = document.getElementById('loader');
+    const VIEWER     = document.getElementById('pdfViewer');
+    const PDF_FRAME  = document.getElementById('pdfFrame');
+    const PDF_TITLE  = document.getElementById('pdfTitle');
     const CLOSE_VIEWER = document.getElementById('closeViewer');
 
-    // --------------------------------------------------------------
+    // -----------------------------------------------------------------
     // Config & state
-    // --------------------------------------------------------------
+    // -----------------------------------------------------------------
     const BACKEND_URL = 'https://pdfs_displaying_backend.video-api-ajaiahar.workers.dev';
-    let allData = [];
+    const BATCH_SIZE  = 30;
+    let allData      = [];
     let currentIndex = 0;
-    const BATCH_SIZE = 30;
-    let loadingMore = false;
+    let loadingMore  = false;
+    let pendingPdfInfo = null;          // { title, embedUrl }
 
-    // While we wait for the rewarded‑ad we keep the title & URL here.
-    const pending = { title: null, url: null };
-
-    // --------------------------------------------------------------
-    // 1️⃣  AD CALLBACKS FROM THE NATIVE LAYER
-    // --------------------------------------------------------------
+    // -----------------------------------------------------------------
+    // Android <-> JS bridge callbacks
+    // -----------------------------------------------------------------
+    // Called by Android when a rewarded ad has been successfully pre‑loaded
     window.onAdPreloaded = function () {
-      console.log('✅ Rewarded ad pre‑loaded');
+      console.log('Rewarded ad pre‑loaded');
     };
+
+    // Called by Android when pre‑loading fails – we try again later
     window.onAdFailedToPreload = function () {
-      console.warn('⚠️ Rewarded ad failed to preload');
+      console.warn('Rewarded ad failed to preload');
+      setTimeout(() => {
+        if (window.Android && typeof Android.preloadRewardedAd === 'function') {
+          Android.preloadRewardedAd();
+        }
+      }, 15000); // retry after 15 seconds
     };
+
+    // Called by Android when the user requests a ad but none is ready
     window.onAdNotAvailable = function () {
-      console.warn('⚠️ Rewarded ad not available – opening PDF directly');
-      if (pending.title && pending.url) {
-        openPDFViewer(pending.title, pending.url);
+      alert('Ad not available at the moment. Please try again later.');
+      // As a fallback we still open the PDF (no reward)
+      if (pendingPdfInfo) {
+        openFullscreenPDF(pendingPdfInfo.title, pendingPdfInfo.embedUrl);
+        pendingPdfInfo = null;
       }
-      clearPending();
     };
-    // Android now passes the *exact* embed URL as an argument.
+
+    // Called by Android when the rewarded video finishes successfully
     window.onAdCompleted = function (targetUrl) {
-      console.log('✅ Rewarded ad completed – opening PDF');
-      const urlToOpen = targetUrl || pending.url; // safety fallback
-      if (pending.title && urlToOpen) {
-        openPDFViewer(pending.title, urlToOpen);
+      if (pendingPdfInfo && pendingPdfInfo.embedUrl === targetUrl) {
+        openFullscreenPDF(pendingPdfInfo.title, targetUrl);
+        pendingPdfInfo = null;
       } else {
-        console.warn('⚠️ No PDF data available after ad');
+        // Defensive – open with generic title
+        openFullscreenPDF('PDF Viewer', targetUrl);
       }
-      clearPending();
+      // Pre‑load the next ad right away for the next interaction
+      if (window.Android && typeof Android.preloadRewardedAd === 'function') {
+        Android.preloadRewardedAd();
+      }
     };
-    function clearPending () {
-      pending.title = null;
-      pending.url   = null;
-    }
 
-    // --------------------------------------------------------------
-    // 2️⃣  PDF VIEWER LOGIC (pure‑CSS overlay)
-    // --------------------------------------------------------------
-    function openPDFViewer(title, embedUrl) {
-      PDF_TITLE.textContent = title || 'PDF Viewer';
-      PDF_FRAME.src = embedUrl;
-      VIEWER.classList.add('active');
-
-      // Disable page scroll while the overlay is visible
-      document.body.style.overflow = 'hidden';
-    }
-
-    function closeViewer () {
-      VIEWER.classList.remove('active');
-      PDF_FRAME.src = '';
-
-      // Re‑enable scrolling
-      document.body.style.overflow = '';
-    }
-
-    // --------------------------------------------------------------
-    // 3️⃣  USER ACTION – “Open PDF”
-    // --------------------------------------------------------------
-    function openFullscreenPDF(title, url) {
-      if (!url) return;
-
-      const embedUrl = url.includes('archive.org')
-        ? url.replace('/details/', '/embed/')
-        : url;
-
-      // Store the data while we wait for the ad callbacks.
-      pending.title = title;
-      pending.url   = embedUrl;
-
+    // -----------------------------------------------------------------
+    // Request a rewarded ad before opening a PDF
+    // -----------------------------------------------------------------
+    function requestRewardedAd(title, embedUrl) {
+      pendingPdfInfo = { title, embedUrl };
       if (window.Android && typeof Android.requestRewardedAd === 'function') {
-        console.log('🔔 Requesting rewarded ad before opening PDF');
-        Android.requestRewardedAd(embedUrl); // native side will call back onAdCompleted
+        Android.requestRewardedAd(embedUrl);
       } else {
-        // No Android bridge – open immediately.
-        console.log('⚙️ No Android bridge – opening PDF without ad');
-        openPDFViewer(title, embedUrl);
-        clearPending();
+        // No Android bridge – just open the PDF instantly
+        openFullscreenPDF(title, embedUrl);
+        pendingPdfInfo = null;
       }
     }
 
-    // --------------------------------------------------------------
-    // 4️⃣  DATA FETCH & UI RENDER
-    // --------------------------------------------------------------
-    async function fetchData () {
+    // -----------------------------------------------------------------
+    // Fetch data from the backend
+    // -----------------------------------------------------------------
+    async function fetchData() {
       try {
-        const res = await fetch(BACKEND_URL);
-        const data = await res.json();
+        const response = await fetch(BACKEND_URL);
+        const data = await response.json();
         LOADER.style.display = 'none';
 
         if (!data || data.length === 0) {
-          FEED.innerHTML = "<p style='text-align:center;color:#94a3b8'>No PDFs found 😢</p>";
+          FEED.innerHTML = `<p style='text-align:center;color:#94a3b8'>No PDFs found 😢</p>`;
           return;
         }
 
+        // Sort newest first (higher id = newer)
         allData = data.sort((a, b) => Number(b.id) - Number(a.id));
         loadNextBatch();
+
+        // Pre‑load the very first ad now that we have data
+        if (window.Android && typeof Android.preloadRewardedAd === 'function') {
+          Android.preloadRewardedAd();
+        }
+
         window.addEventListener('scroll', handleScroll);
       } catch (err) {
         LOADER.style.display = 'none';
@@ -338,12 +326,15 @@
       }
     }
 
-    function loadNextBatch () {
+    // -----------------------------------------------------------------
+    // Render cards in batches (infinite scroll)
+    // -----------------------------------------------------------------
+    function loadNextBatch() {
       if (loadingMore) return;
       loadingMore = true;
 
-      const nextBatch = allData.slice(currentIndex, currentIndex + BATCH_SIZE);
-      nextBatch.forEach(item => createCard(item));
+      const batch = allData.slice(currentIndex, currentIndex + BATCH_SIZE);
+      batch.forEach(item => createCard(item));
 
       currentIndex += BATCH_SIZE;
       loadingMore = false;
@@ -353,20 +344,27 @@
       }
     }
 
-    function createCard (item) {
+    // -----------------------------------------------------------------
+    // Build a single card (preview + info + open button)
+    // -----------------------------------------------------------------
+    function createCard(item) {
       const card = document.createElement('div');
       card.className = 'card';
 
+      // ---- preview ----
       const preview = document.createElement('div');
       preview.className = 'preview';
 
+      // Compute the embed URL if possible (archive.org PDFs)
+      let embedUrl = '';
       if (item.archive_url && item.archive_url.includes('archive.org')) {
-        const embedUrl = item.archive_url.replace('/details/', '/embed/');
+        embedUrl = item.archive_url.replace('/details/', '/embed/');
         preview.innerHTML = `<iframe src="${embedUrl}" allowfullscreen></iframe>`;
       } else {
         preview.textContent = 'No Preview Available';
       }
 
+      // ---- info (title + meta) ----
       const info = document.createElement('div');
       info.className = 'info';
       info.innerHTML = `
@@ -374,40 +372,63 @@
         <div class="meta">👤 ${item.username || 'Anonymous'} • 🆔 ${item.id || 'N/A'}</div>
       `;
 
+      // ---- open button ----
       const openBtn = document.createElement('button');
       openBtn.className = 'open-btn';
       openBtn.textContent = 'Open PDF';
-      openBtn.onclick = () => openFullscreenPDF(item.title, item.archive_url);
+      openBtn.onclick = () => {
+        if (embedUrl) {
+          requestRewardedAd(item.title || 'Untitled PDF', embedUrl);
+        } else {
+          alert('This item does not have an available PDF.');
+        }
+      };
 
       card.append(preview, info, openBtn);
       FEED.appendChild(card);
     }
 
-    function handleScroll () {
+    // -----------------------------------------------------------------
+    // Infinite‑scroll handler
+    // -----------------------------------------------------------------
+    function handleScroll() {
       const { scrollTop, scrollHeight, clientHeight } = document.documentElement;
       if (scrollTop + clientHeight >= scrollHeight - 10) {
         loadNextBatch();
       }
     }
 
-    // --------------------------------------------------------------
-    // 5️⃣  VIEWER CLOSE LOGIC
-    // --------------------------------------------------------------
-    CLOSE_VIEWER.onclick = closeViewer;
-    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeViewer(); });
+    // -----------------------------------------------------------------
+    // Full‑screen PDF viewer
+    // -----------------------------------------------------------------
+    function openFullscreenPDF(title, url) {
+      if (!url) return;
 
-    // --------------------------------------------------------------
-    // 6️⃣  INITIALISATION
-    // --------------------------------------------------------------
-    document.addEventListener('DOMContentLoaded', () => {
-      if (window.Android && typeof Android.preloadRewardedAd === 'function') {
-        console.log('🔧 Pre‑loading rewarded ad');
-        Android.preloadRewardedAd();
-      } else {
-        console.log('⚙️ Android bridge not present – ad functionality disabled.');
-      }
-      fetchData();
+      // Ensure we are feeding the embed version of the URL to the iframe
+      const embedUrl = url.includes('archive.org')
+        ? url.replace('/details/', '/embed/')
+        : url;
+
+      PDF_TITLE.textContent = title || 'PDF Viewer';
+      PDF_FRAME.src = embedUrl;
+      VIEWER.classList.add('active');
+    }
+
+    // ---- close viewer ----
+    CLOSE_VIEWER.onclick = () => closeViewer();
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') closeViewer();
     });
+
+    function closeViewer() {
+      VIEWER.classList.remove('active');
+      PDF_FRAME.src = '';
+    }
+
+    // -----------------------------------------------------------------
+    // Start everything
+    // -----------------------------------------------------------------
+    fetchData();
   </script>
 </body>
 </html>
