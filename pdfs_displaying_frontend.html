@@ -112,8 +112,49 @@
       word-break: break-word;
     }
 
-    .open-btn {
+    .btn-container {
       margin-top: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .fullscreen-btn {
+      background: linear-gradient(135deg, #22c55e, #16a34a);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 10px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.25s ease, transform 0.2s ease;
+      font-size: 0.95em;
+      font-family: 'Poppins', sans-serif;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .fullscreen-btn.visible {
+      display: flex;
+    }
+
+    .fullscreen-btn:hover { 
+      background: linear-gradient(135deg, #16a34a, #15803d);
+      transform: scale(1.02);
+    }
+
+    .fullscreen-btn:active {
+      transform: scale(0.98);
+    }
+
+    .fullscreen-btn svg {
+      width: 18px;
+      height: 18px;
+    }
+
+    .open-btn {
       background: #60a5fa;
       color: white;
       border: none;
@@ -255,7 +296,7 @@
 
     @media (max-width: 768px) {
       header { font-size: 1.3em; padding: 12px; }
-      .open-btn { font-size: 0.9em; padding: 8px; }
+      .open-btn, .fullscreen-btn { font-size: 0.9em; padding: 8px; }
       .meta { font-size: 0.8em; }
     }
 
@@ -304,7 +345,13 @@
     let loadingMore = false;
     let pendingPdfUrl = null;
     let pendingPdfTitle = null;
+    let pendingPdfId = null;
     let adReady = false;
+    
+    // Track unlocked PDFs (user watched ad for these)
+    const unlockedPdfs = new Set();
+    // Store card references by PDF ID
+    const cardRefs = new Map();
 
     // ==================== Android Bridge ====================
     function isAndroidBridgeAvailable() {
@@ -338,16 +385,25 @@
       adReady = false;
     };
 
-    window.onAdCompleted = function() {
-      console.log('Ad completed, opening pending PDF');
-
-      if (pendingPdfUrl && pendingPdfTitle) {
-        openPdfViewer(pendingPdfTitle, pendingPdfUrl);
+    window.onAdCompleted = function(url) {
+      console.log('Ad completed, opening PDF:', url);
+      
+      // Mark this PDF as unlocked
+      if (pendingPdfId) {
+        unlockedPdfs.add(pendingPdfId);
+        // Show fullscreen button for this card
+        showFullscreenButton(pendingPdfId);
       }
-
+      
+      if (url && pendingPdfTitle) {
+        openPdfViewer(pendingPdfTitle, url);
+      }
+      
       pendingPdfUrl = null;
       pendingPdfTitle = null;
-
+      pendingPdfId = null;
+      
+      // Preload next ad
       preloadAd();
     };
 
@@ -358,22 +414,33 @@
       }
       pendingPdfUrl = null;
       pendingPdfTitle = null;
+      pendingPdfId = null;
     };
 
+    // ==================== Fullscreen Button Management ====================
+    function showFullscreenButton(pdfId) {
+      const cardData = cardRefs.get(pdfId);
+      if (cardData && cardData.fullscreenBtn) {
+        cardData.fullscreenBtn.classList.add('visible');
+      }
+    }
+
     // ==================== PDF Viewer Functions ====================
+    function getEmbedUrl(url) {
+      if (!url) return '';
+      if (url.includes('archive.org') && url.includes('/details/')) {
+        return url.replace('/details/', '/embed/');
+      }
+      return url;
+    }
+
     function openPdfViewer(title, url) {
       if (!url) return;
-
+      const embedUrl = getEmbedUrl(url);
       PDF_TITLE.textContent = title || 'PDF Viewer';
-
-      // Show viewer first
+      PDF_FRAME.src = embedUrl;
       VIEWER.classList.add('active');
       document.body.style.overflow = 'hidden';
-
-      // Delay iframe load (critical for Android WebView)
-      setTimeout(() => {
-        PDF_FRAME.src = url + (url.includes('?') ? '&' : '?') + 't=' + Date.now();
-      }, 150);
     }
 
     function closeViewer() {
@@ -382,12 +449,13 @@
       document.body.style.overflow = '';
     }
 
-    function handleOpenPdf(title, url) {
+    function handleOpenPdf(pdfId, title, url) {
       if (!url) return;
 
       // Store pending PDF info
       pendingPdfUrl = url;
       pendingPdfTitle = title;
+      pendingPdfId = pdfId;
 
       // Try to show rewarded ad first
       const adRequested = requestRewardedAd(url);
@@ -398,11 +466,19 @@
         openPdfViewer(title, url);
         pendingPdfUrl = null;
         pendingPdfTitle = null;
+        pendingPdfId = null;
       }
+    }
+
+    function handleDirectOpen(title, url) {
+      // Direct open without ad (for unlocked PDFs)
+      openPdfViewer(title, url);
     }
 
     // ==================== Card Creation ====================
     function createCard(item) {
+      const pdfId = item.id || Math.random().toString(36).substr(2, 9);
+      
       const card = document.createElement('div');
       card.className = 'card';
 
@@ -410,7 +486,8 @@
       preview.className = 'preview';
 
       if (item.archive_url && item.archive_url.includes('archive.org')) {
-        preview.innerHTML = `<iframe src="${item.archive_url}" allowfullscreen loading="lazy"></iframe>`;
+        const embedUrl = getEmbedUrl(item.archive_url);
+        preview.innerHTML = `<iframe src="${embedUrl}" allowfullscreen loading="lazy"></iframe>`;
       } else {
         preview.innerHTML = `
           <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
@@ -440,14 +517,43 @@
       info.appendChild(title);
       info.appendChild(meta);
 
+      // Button container
+      const btnContainer = document.createElement('div');
+      btnContainer.className = 'btn-container';
+
+      // Fullscreen button (hidden by default, shown after ad watched)
+      const fullscreenBtn = document.createElement('button');
+      fullscreenBtn.className = 'fullscreen-btn';
+      if (unlockedPdfs.has(pdfId)) {
+        fullscreenBtn.classList.add('visible');
+      }
+      fullscreenBtn.innerHTML = `
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
+        </svg>
+        Open Fullscreen (Unlocked)
+      `;
+      fullscreenBtn.onclick = () => handleDirectOpen(item.title, item.archive_url);
+
+      // Open PDF button (with ad)
       const openBtn = document.createElement('button');
       openBtn.className = 'open-btn';
       openBtn.textContent = '▶ Open PDF';
-      openBtn.onclick = () => handleOpenPdf(item.title, item.archive_url);
+      openBtn.onclick = () => handleOpenPdf(pdfId, item.title, item.archive_url);
+
+      btnContainer.appendChild(fullscreenBtn);
+      btnContainer.appendChild(openBtn);
 
       card.appendChild(preview);
       card.appendChild(info);
-      card.appendChild(openBtn);
+      card.appendChild(btnContainer);
+
+      // Store reference for later updates
+      cardRefs.set(pdfId, {
+        card: card,
+        fullscreenBtn: fullscreenBtn,
+        item: item
+      });
 
       return card;
     }
