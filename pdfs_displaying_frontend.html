@@ -1,258 +1,413 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>📚 PDF Stream</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>📚 PDF Stream</title>
 
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+  <!-- Font -->
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
 
-<style>
-* { box-sizing: border-box; margin: 0; padding: 0; }
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
 
-body {
-  font-family: 'Poppins', sans-serif;
-  background: linear-gradient(135deg, #0f172a, #1e293b);
-  color: #fff;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
+    body {
+      font-family: 'Poppins', sans-serif;
+      background: linear-gradient(135deg, #0f172a, #1e293b);
+      color: white;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding-bottom: 40px;
+    }
 
-header {
-  width: 100%;
-  padding: 16px;
-  text-align: center;
-  background: rgba(255,255,255,.08);
-  backdrop-filter: blur(12px);
-  font-size: 1.5em;
-  font-weight: 600;
-  color: #60a5fa;
-}
+    header {
+      width: 100%;
+      padding: 16px;
+      text-align: center;
+      background: rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(12px);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+      font-size: 1.5em;
+      font-weight: 600;
+      color: #60a5fa;
+      letter-spacing: 1px;
+    }
 
-#feed {
-  width: 92%;
-  max-width: 1300px;
-  margin-top: 24px;
-  display: grid;
-  grid-template-columns: repeat(auto-fit,minmax(240px,1fr));
-  gap: 16px;
-}
+    #feed {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 16px;
+      width: 92%;
+      max-width: 1300px;
+      margin-top: 24px;
+    }
 
-.card {
-  background: rgba(255,255,255,.08);
-  border-radius: 16px;
-  padding: 14px;
-  display: flex;
-  flex-direction: column;
-}
+    .card {
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 16px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      transition: transform 0.25s ease, box-shadow 0.25s ease;
+    }
 
-.preview {
-  width: 100%;
-  aspect-ratio: 16/9;
-  border-radius: 12px;
-  overflow: hidden;
-  background: #1e293b;
-}
+    .card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+    }
 
-.preview iframe {
-  width: 100%;
-  height: 100%;
-  border: none;
-}
+    .preview {
+      width: 100%;
+      aspect-ratio: 16/9;
+      border-radius: 12px;
+      overflow: hidden;
+      background: #1e293b;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #94a3b8;
+      font-size: 0.9em;
+    }
 
-.title {
-  margin-top: 8px;
-  font-weight: 600;
-}
+    .preview iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
 
-.meta {
-  font-size: .85em;
-  color: #94a3b8;
-}
+    .info { margin-top: 10px; }
 
-.open-btn {
-  margin-top: 10px;
-  background: #60a5fa;
-  color: #fff;
-  border: none;
-  padding: 10px;
-  border-radius: 8px;
-  cursor: pointer;
-}
+    .title {
+      font-size: 1em;
+      font-weight: 600;
+      color: #f8fafc;
+      margin-bottom: 4px;
+      line-height: 1.4;
+      word-break: break-word;
+    }
 
-.open-btn:hover { background: #3b82f6; }
+    .meta {
+      font-size: 0.85em;
+      color: #94a3b8;
+      word-break: break-word;
+    }
 
-/* ===== FULLSCREEN PDF OVERLAY (CSS ONLY) ===== */
-.pdf-viewer {
-  position: fixed;
-  inset: 0;
-  background: #0f172a;
-  z-index: 9999;
-  display: none;
-  flex-direction: column;
-  width: 100vw;
-  height: 100vh;
-}
+    .open-btn {
+      margin-top: 10px;
+      background: #60a5fa;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 10px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.25s ease;
+      font-size: 0.95em;
+    }
 
-.pdf-viewer.active {
-  display: flex;
-}
+    .open-btn:hover { background: #3b82f6; }
 
-.pdf-toolbar {
-  padding: 12px;
-  background: rgba(15,23,42,.95);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
+    footer {
+      margin-top: 30px;
+      color: #94a3b8;
+      font-size: 0.9em;
+      text-align: center;
+    }
 
-.pdf-toolbar h2 {
-  font-size: 1em;
-  color: #93c5fd;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
+    .loader {
+      margin-top: 60px;
+      border: 6px solid rgba(255, 255, 255, 0.2);
+      border-top: 6px solid #60a5fa;
+      border-radius: 50%;
+      width: 45px;
+      height: 45px;
+      animation: spin 1s linear infinite;
+    }
 
-.close-full {
-  background: #ef4444;
-  border: none;
-  color: #fff;
-  font-size: 1.2em;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  cursor: pointer;
-}
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
 
-.pdf-iframe {
-  flex: 1;
-  width: 100%;
-  height: 100%;
-  border: none;
-  background: #000;
-}
-</style>
+    /* ----------  FULL‑SCREEN PDF VIEWER (CSS only) ---------- */
+    .pdf-viewer {
+      position: fixed;
+      inset: 0;               /* top, left, right, bottom = 0 */
+      background: #0f172a;
+      z-index: 9999;
+      display: none;
+      flex-direction: column;
+    }
+    .pdf-viewer.active { display: flex; }
+
+    .pdf-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 14px;
+      background: rgba(15, 23, 42, 0.9);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .pdf-toolbar h2 {
+      font-size: 1em;
+      color: #93c5fd;
+      font-weight: 500;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 80%;
+    }
+
+    .close-full {
+      background: #ef4444;
+      border: none;
+      color: white;
+      font-size: 1.2em;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      cursor: pointer;
+      transition: background 0.25s ease;
+    }
+
+    .close-full:hover { background: #dc2626; }
+
+    .pdf-iframe {
+      flex-grow: 1;
+      border: none;
+      width: 100%;
+      height: 100%;
+    }
+
+    @media (max-width: 768px) {
+      header { font-size: 1.3em; padding: 12px; }
+      .open-btn { font-size: 0.9em; padding: 8px; }
+      .meta { font-size: 0.8em; }
+    }
+
+    @media (max-width: 480px) {
+      #feed { width: 96%; gap: 12px; }
+      .card { padding: 10px; }
+      .preview { aspect-ratio: 4/3; }
+      .title { font-size: 0.95em; }
+      .pdf-toolbar h2 { font-size: 0.9em; }
+      .close-full { width: 32px; height: 32px; font-size: 1em; }
+    }
+  </style>
 </head>
 
 <body>
+  <header>📚 PDF Stream</header>
+  <div id="feed"></div>
+  <div id="loader" class="loader"></div>
+  <footer>Powered by Archive & Your Backend</footer>
 
-<header>📚 PDF Stream</header>
-<div id="feed"></div>
-
-<!-- FULLSCREEN PDF VIEWER -->
-<div id="pdfViewer" class="pdf-viewer">
-  <div class="pdf-toolbar">
-    <h2 id="pdfTitle">PDF Viewer</h2>
-    <button class="close-full" id="closeViewer">&times;</button>
+  <!-- Fullscreen PDF Viewer (CSS overlay) -->
+  <div id="pdfViewer" class="pdf-viewer">
+    <div class="pdf-toolbar">
+      <h2 id="pdfTitle">PDF Viewer</h2>
+      <button class="close-full" id="closeViewer">&times;</button>
+    </div>
+    <iframe id="pdfFrame" class="pdf-iframe" src=""></iframe>
   </div>
-  <iframe id="pdfFrame" class="pdf-iframe"></iframe>
-</div>
 
-<script>
-const BACKEND_URL = 'https://pdfs_displaying_backend.video-api-ajaiahar.workers.dev';
+  <script>
+    // --------------------------------------------------------------
+    // DOM references
+    // --------------------------------------------------------------
+    const FEED         = document.getElementById('feed');
+    const LOADER       = document.getElementById('loader');
+    const VIEWER       = document.getElementById('pdfViewer');
+    const PDF_FRAME    = document.getElementById('pdfFrame');
+    const PDF_TITLE    = document.getElementById('pdfTitle');
+    const CLOSE_VIEWER = document.getElementById('closeViewer');
 
-const FEED = document.getElementById('feed');
-const VIEWER = document.getElementById('pdfViewer');
-const PDF_FRAME = document.getElementById('pdfFrame');
-const PDF_TITLE = document.getElementById('pdfTitle');
+    // --------------------------------------------------------------
+    // Config & state
+    // --------------------------------------------------------------
+    const BACKEND_URL = 'https://pdfs_displaying_backend.video-api-ajaiahar.workers.dev';
+    let allData = [];
+    let currentIndex = 0;
+    const BATCH_SIZE = 30;
+    let loadingMore = false;
 
-const pending = { title:null, url:null };
+    // While we wait for the rewarded‑ad we keep the title & URL here.
+    const pending = { title: null, url: null };
 
-// ===== ANDROID CALLBACKS =====
-window.onAdPreloaded = () => console.log('Ad preloaded');
-window.onAdFailedToPreload = () => console.warn('Ad preload failed');
+    // --------------------------------------------------------------
+    // 1️⃣  AD CALLBACKS FROM THE NATIVE LAYER
+    // --------------------------------------------------------------
+    window.onAdPreloaded = function () {
+      console.log('✅ Rewarded ad pre‑loaded');
+    };
+    window.onAdFailedToPreload = function () {
+      console.warn('⚠️ Rewarded ad failed to preload');
+    };
+    window.onAdNotAvailable = function () {
+      console.warn('⚠️ Rewarded ad not available – opening PDF directly');
+      if (pending.title && pending.url) {
+        openPDFViewer(pending.title, pending.url);
+      }
+      clearPending();
+    };
+    // Android now passes the *exact* embed URL as an argument.
+    window.onAdCompleted = function (targetUrl) {
+      console.log('✅ Rewarded ad completed – opening PDF');
+      const urlToOpen = targetUrl || pending.url; // safety fallback
+      if (pending.title && urlToOpen) {
+        openPDFViewer(pending.title, urlToOpen);
+      } else {
+        console.warn('⚠️ No PDF data available after ad');
+      }
+      clearPending();
+    };
+    function clearPending () {
+      pending.title = null;
+      pending.url   = null;
+    }
 
-window.onAdNotAvailable = () => {
-  openPendingPDF();
-};
+    // --------------------------------------------------------------
+    // 2️⃣  PDF VIEWER LOGIC (pure‑CSS overlay)
+    // --------------------------------------------------------------
+    function openPDFViewer(title, embedUrl) {
+      PDF_TITLE.textContent = title || 'PDF Viewer';
+      PDF_FRAME.src = embedUrl;
+      VIEWER.classList.add('active');
 
-window.onAdCompleted = () => {
-  // Delay fixes WebView redraw timing
-  setTimeout(openPendingPDF, 100);
-};
+      // Disable page scroll while the overlay is visible
+      document.body.style.overflow = 'hidden';
+    }
 
-function openPendingPDF(){
-  if (!pending.url) return;
-  openPDFViewer(pending.title, pending.url);
-  pending.title = pending.url = null;
-}
+    function closeViewer () {
+      VIEWER.classList.remove('active');
+      PDF_FRAME.src = '';
 
-// ===== PDF VIEWER =====
-function openPDFViewer(title, url){
-  PDF_TITLE.textContent = title || 'PDF Viewer';
-  PDF_FRAME.src = url;
-  VIEWER.classList.add('active');
-  document.body.style.overflow = 'hidden';
-}
+      // Re‑enable scrolling
+      document.body.style.overflow = '';
+    }
 
-function closeViewer(){
-  VIEWER.classList.remove('active');
-  PDF_FRAME.src = '';
-  document.body.style.overflow = '';
-}
+    // --------------------------------------------------------------
+    // 3️⃣  USER ACTION – “Open PDF”
+    // --------------------------------------------------------------
+    function openFullscreenPDF(title, url) {
+      if (!url) return;
 
-document.getElementById('closeViewer').onclick = closeViewer;
+      const embedUrl = url.includes('archive.org')
+        ? url.replace('/details/', '/embed/')
+        : url;
 
-// ===== OPEN BUTTON HANDLER =====
-function openFullscreenPDF(title, rawUrl){
-  if (!rawUrl) return;
+      // Store the data while we wait for the ad callbacks.
+      pending.title = title;
+      pending.url   = embedUrl;
 
-  const embedUrl = rawUrl.includes('/details/')
-    ? rawUrl.replace('/details/','/embed/')
-    : rawUrl;
+      if (window.Android && typeof Android.requestRewardedAd === 'function') {
+        console.log('🔔 Requesting rewarded ad before opening PDF');
+        Android.requestRewardedAd(embedUrl); // native side will call back onAdCompleted
+      } else {
+        // No Android bridge – open immediately.
+        console.log('⚙️ No Android bridge – opening PDF without ad');
+        openPDFViewer(title, embedUrl);
+        clearPending();
+      }
+    }
 
-  pending.title = title;
-  pending.url = embedUrl;
+    // --------------------------------------------------------------
+    // 4️⃣  DATA FETCH & UI RENDER
+    // --------------------------------------------------------------
+    async function fetchData () {
+      try {
+        const res = await fetch(BACKEND_URL);
+        const data = await res.json();
+        LOADER.style.display = 'none';
 
-  if (window.Android && Android.requestRewardedAd) {
-    Android.requestRewardedAd(embedUrl);
-  } else {
-    openPendingPDF();
-  }
-}
+        if (!data || data.length === 0) {
+          FEED.innerHTML = "<p style='text-align:center;color:#94a3b8'>No PDFs found 😢</p>";
+          return;
+        }
 
-// ===== DATA FETCH =====
-async function fetchData(){
-  const res = await fetch(BACKEND_URL);
-  const data = await res.json();
+        allData = data.sort((a, b) => Number(b.id) - Number(a.id));
+        loadNextBatch();
+        window.addEventListener('scroll', handleScroll);
+      } catch (err) {
+        LOADER.style.display = 'none';
+        FEED.innerHTML = `<p style='text-align:center;color:#f87171'>Error loading data 😞</p>`;
+        console.error(err);
+      }
+    }
 
-  data.forEach(item=>{
-    const card = document.createElement('div');
-    card.className = 'card';
+    function loadNextBatch () {
+      if (loadingMore) return;
+      loadingMore = true;
 
-    const preview = document.createElement('div');
-    preview.className = 'preview';
-    preview.innerHTML = `<iframe src="${item.archive_url.replace('/details/','/embed/')}" loading="lazy"></iframe>`;
+      const nextBatch = allData.slice(currentIndex, currentIndex + BATCH_SIZE);
+      nextBatch.forEach(item => createCard(item));
 
-    const title = document.createElement('div');
-    title.className = 'title';
-    title.textContent = item.title || 'Untitled';
+      currentIndex += BATCH_SIZE;
+      loadingMore = false;
 
-    const meta = document.createElement('div');
-    meta.className = 'meta';
-    meta.textContent = `👤 ${item.username || 'Anonymous'}`;
+      if (currentIndex >= allData.length) {
+        window.removeEventListener('scroll', handleScroll);
+      }
+    }
 
-    const btn = document.createElement('button');
-    btn.className = 'open-btn';
-    btn.textContent = 'Open PDF';
-    btn.onclick = () => openFullscreenPDF(item.title, item.archive_url);
+    function createCard (item) {
+      const card = document.createElement('div');
+      card.className = 'card';
 
-    card.append(preview,title,meta,btn);
-    FEED.appendChild(card);
-  });
-}
+      const preview = document.createElement('div');
+      preview.className = 'preview';
 
-// ===== INIT =====
-document.addEventListener('DOMContentLoaded',()=>{
-  if (window.Android && Android.preloadRewardedAd) {
-    Android.preloadRewardedAd();
-  }
-  fetchData();
-});
-</script>
+      if (item.archive_url && item.archive_url.includes('archive.org')) {
+        const embedUrl = item.archive_url.replace('/details/', '/embed/');
+        preview.innerHTML = `<iframe src="${embedUrl}" allowfullscreen></iframe>`;
+      } else {
+        preview.textContent = 'No Preview Available';
+      }
 
+      const info = document.createElement('div');
+      info.className = 'info';
+      info.innerHTML = `
+        <div class="title">${item.title || 'Untitled PDF'}</div>
+        <div class="meta">👤 ${item.username || 'Anonymous'} • 🆔 ${item.id || 'N/A'}</div>
+      `;
+
+      const openBtn = document.createElement('button');
+      openBtn.className = 'open-btn';
+      openBtn.textContent = 'Open PDF';
+      openBtn.onclick = () => openFullscreenPDF(item.title, item.archive_url);
+
+      card.append(preview, info, openBtn);
+      FEED.appendChild(card);
+    }
+
+    function handleScroll () {
+      const { scrollTop, scrollHeight, clientHeight } = document.documentElement;
+      if (scrollTop + clientHeight >= scrollHeight - 10) {
+        loadNextBatch();
+      }
+    }
+
+    // --------------------------------------------------------------
+    // 5️⃣  VIEWER CLOSE LOGIC
+    // --------------------------------------------------------------
+    CLOSE_VIEWER.onclick = closeViewer;
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeViewer(); });
+
+    // --------------------------------------------------------------
+    // 6️⃣  INITIALISATION
+    // --------------------------------------------------------------
+    document.addEventListener('DOMContentLoaded', () => {
+      if (window.Android && typeof Android.preloadRewardedAd === 'function') {
+        console.log('🔧 Pre‑loading rewarded ad');
+        Android.preloadRewardedAd();
+      } else {
+        console.log('⚙️ Android bridge not present – ad functionality disabled.');
+      }
+      fetchData();
+    });
+  </script>
 </body>
 </html>
