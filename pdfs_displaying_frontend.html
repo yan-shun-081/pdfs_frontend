@@ -318,10 +318,14 @@
       PDF_FRAME.src = embedUrl;
       VIEWER.classList.add('active');
 
-      // ask native side for a rewarded ad
+      // make sure the ad container is visible for this opening
+      AD_CONTAINER.style.display = 'flex';
+      AD_CONTAINER.innerHTML = '';           // clear any previous message
+
+      // ask Android for a rewarded ad
       requestNativeRewardedAd();
 
-      // if we are not inside an Android WebView, fall back to a simple video
+      // if we are not inside an Android WebView, display a fallback video
       if (!hasNativeBridge()) {
         loadFallbackRewardedVideo();
       }
@@ -366,18 +370,25 @@
     /* --------------------------------------------------------------
        9️⃣  CALLBACKS THAT WILL BE INVOKED BY THE ANDROID CODE
     -------------------------------------------------------------- */
-    // Called when the rewarded ad finishes successfully
+    // Called by Android when the rewarded ad finishes successfully
     function onAdCompleted(tag) {
       console.log("✅ Rewarded ad completed:", tag);
-      AD_CONTAINER.innerHTML =
-        "<p style='color:#94a3b8'>👍 Thanks for watching! Enjoy your PDF.</p>";
+      // Hide the ad container completely – the PDF expands to full height
+      AD_CONTAINER.style.display = 'none';
+      AD_CONTAINER.innerHTML = '';
     }
 
-    // Called when the ad is not available (e.g. not loaded yet)
+    // Called by Android when the ad cannot be shown (e.g., not loaded)
     function onAdNotAvailable() {
       console.log("⚠️ Rewarded ad not available");
       AD_CONTAINER.innerHTML =
         "<p style='color:#f87171'>Ad not available. Please try later.</p>";
+
+      // hide after a short notice so the space disappears
+      setTimeout(() => {
+        AD_CONTAINER.style.display = 'none';
+        AD_CONTAINER.innerHTML = '';
+      }, 3000);
     }
 
     /* --------------------------------------------------------------
@@ -386,6 +397,7 @@
     function closeViewer() {
       VIEWER.classList.remove('active');
       PDF_FRAME.src = '';
+      AD_CONTAINER.style.display = 'none';
       AD_CONTAINER.innerHTML = '';
     }
 
