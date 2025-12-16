@@ -1,629 +1,353 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>📚 PDF Stream</title>
-  <meta name="description" content="Browse and read PDFs from Archive.org with a beautiful interface. Free PDF viewer with rewarded content." />
-  <meta name="author" content="PDF Stream" />
-  <meta name="theme-color" content="#0f172a" />
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>📚 PDF Stream</title>
 
-  <meta property="og:title" content="PDF Stream - Free PDF Viewer" />
-  <meta property="og:description" content="Browse and read PDFs from Archive.org with a beautiful interface" />
-  <meta property="og:type" content="website" />
+    <!-- Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap"
+          rel="stylesheet">
 
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
-
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-
-    body {
-      font-family: 'Poppins', sans-serif;
-      background: linear-gradient(135deg, #0f172a, #1e293b);
-      color: white;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding-bottom: 40px;
-    }
-
-    header {
-      width: 100%;
-      padding: 16px;
-      text-align: center;
-      background: rgba(255, 255, 255, 0.08);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-      font-size: 1.5em;
-      font-weight: 600;
-      color: #60a5fa;
-      letter-spacing: 1px;
-      position: sticky;
-      top: 0;
-      z-index: 100;
-    }
-
-    #feed {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-      gap: 16px;
-      width: 92%;
-      max-width: 1300px;
-      margin-top: 24px;
-    }
-
-    .card {
-      background: rgba(255, 255, 255, 0.08);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      border-radius: 16px;
-      padding: 14px;
-      display: flex;
-      flex-direction: column;
-      transition: transform 0.25s ease, box-shadow 0.25s ease;
-      border: 1px solid rgba(255, 255, 255, 0.1);
-    }
-
-    .card:hover {
-      transform: translateY(-4px);
-      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
-    }
-
-    .preview {
-      width: 100%;
-      aspect-ratio: 16/9;
-      border-radius: 12px;
-      overflow: hidden;
-      background: #1e293b;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #94a3b8;
-      font-size: 0.9em;
-    }
-
-    .preview iframe {
-      width: 100%;
-      height: 100%;
-      border: none;
-      pointer-events: none;
-    }
-
-    .info { margin-top: 10px; }
-
-    .title {
-      font-size: 1em;
-      font-weight: 600;
-      color: #f8fafc;
-      margin-bottom: 4px;
-      line-height: 1.4;
-      word-break: break-word;
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
-    }
-
-    .meta {
-      font-size: 0.85em;
-      color: #94a3b8;
-      word-break: break-word;
-    }
-
-    .btn-container {
-      margin-top: 10px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    .fullscreen-btn {
-      background: linear-gradient(135deg, #22c55e, #16a34a);
-      color: white;
-      border: none;
-      border-radius: 8px;
-      padding: 10px;
-      font-weight: 500;
-      cursor: pointer;
-      transition: background 0.25s ease, transform 0.2s ease;
-      font-size: 0.95em;
-      font-family: 'Poppins', sans-serif;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-    }
-
-    .fullscreen-btn.visible {
-      display: flex;
-    }
-
-    .fullscreen-btn:hover { 
-      background: linear-gradient(135deg, #16a34a, #15803d);
-      transform: scale(1.02);
-    }
-
-    .fullscreen-btn:active {
-      transform: scale(0.98);
-    }
-
-    .fullscreen-btn svg {
-      width: 18px;
-      height: 18px;
-    }
-
-    .open-btn {
-      background: #60a5fa;
-      color: white;
-      border: none;
-      border-radius: 8px;
-      padding: 10px;
-      font-weight: 500;
-      cursor: pointer;
-      transition: background 0.25s ease, transform 0.2s ease;
-      font-size: 0.95em;
-      font-family: 'Poppins', sans-serif;
-    }
-
-    .open-btn:hover { 
-      background: #3b82f6; 
-      transform: scale(1.02);
-    }
-
-    .open-btn:active {
-      transform: scale(0.98);
-    }
-
-    .open-btn:disabled {
-      background: #475569;
-      cursor: not-allowed;
-    }
-
-    footer {
-      margin-top: 30px;
-      color: #94a3b8;
-      font-size: 0.9em;
-      text-align: center;
-    }
-
-    .loader {
-      margin-top: 60px;
-      border: 6px solid rgba(255, 255, 255, 0.2);
-      border-top: 6px solid #60a5fa;
-      border-radius: 50%;
-      width: 45px;
-      height: 45px;
-      animation: spin 1s linear infinite;
-    }
-
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-
-    .pdf-viewer {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      background: #0f172a;
-      z-index: 999;
-      display: none;
-      flex-direction: column;
-    }
-
-    .pdf-viewer.active { display: flex; }
-
-    .pdf-toolbar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 10px 14px;
-      background: rgba(15, 23, 42, 0.95);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    }
-
-    .pdf-toolbar h2 {
-      font-size: 1em;
-      color: #93c5fd;
-      font-weight: 500;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      max-width: 80%;
-    }
-
-    .close-full {
-      background: #ef4444;
-      border: none;
-      color: white;
-      font-size: 1.2em;
-      width: 36px;
-      height: 36px;
-      border-radius: 50%;
-      cursor: pointer;
-      transition: background 0.25s ease, transform 0.2s ease;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .close-full:hover { 
-      background: #dc2626; 
-      transform: scale(1.1);
-    }
-
-    .pdf-iframe {
-      flex-grow: 1;
-      border: none;
-      width: 100%;
-      height: 100%;
-      background: #1e293b;
-    }
-
-    .error-message {
-      text-align: center;
-      color: #f87171;
-      padding: 40px;
-      font-size: 1.1em;
-    }
-
-    .empty-message {
-      text-align: center;
-      color: #94a3b8;
-      padding: 40px;
-      font-size: 1.1em;
-    }
-
-    .loading-more {
-      display: flex;
-      justify-content: center;
-      padding: 20px;
-      width: 100%;
-    }
-
-    .loading-more .loader {
-      margin-top: 0;
-      width: 30px;
-      height: 30px;
-      border-width: 4px;
-    }
-
-    @media (max-width: 768px) {
-      header { font-size: 1.3em; padding: 12px; }
-      .open-btn, .fullscreen-btn { font-size: 0.9em; padding: 8px; }
-      .meta { font-size: 0.8em; }
-    }
-
-    @media (max-width: 480px) {
-      #feed { width: 96%; gap: 12px; }
-      .card { padding: 10px; }
-      .preview { aspect-ratio: 4/3; }
-      .title { font-size: 0.95em; }
-      .pdf-toolbar h2 { font-size: 0.9em; }
-      .close-full { width: 32px; height: 32px; font-size: 1em; }
-    }
-  </style>
+    <style>
+        *{box-sizing:border-box;margin:0;padding:0}
+        body{
+            font-family:'Poppins',sans-serif;
+            background:linear-gradient(135deg,#0f172a,#1e293b);
+            color:#fff;
+            min-height:100vh;
+            display:flex;
+            flex-direction:column;
+            align-items:center;
+            padding-bottom:40px;
+        }
+        header{
+            width:100%;padding:16px;text-align:center;
+            background:rgba(255,255,255,.08);
+            backdrop-filter:blur(12px);
+            box-shadow:0 4px 20px rgba(0,0,0,.3);
+            font-size:1.5em;font-weight:600;
+            color:#60a5fa;letter-spacing:1px;
+        }
+        #feed{
+            display:grid;
+            grid-template-columns:repeat(auto-fit,minmax(240px,1fr));
+            gap:16px;width:92%;max-width:1300px;margin-top:24px;
+        }
+        .card{
+            background:rgba(255,255,255,.08);
+            border-radius:16px;
+            padding:14px;
+            display:flex;
+            flex-direction:column;
+            transition:transform .25s ease,box-shadow .25s ease;
+        }
+        .card:hover{
+            transform:translateY(-4px);
+            box-shadow:0 8px 20px rgba(0,0,0,.4);
+        }
+        .preview{
+            width:100%;aspect-ratio:16/9;
+            border-radius:12px;
+            overflow:hidden;
+            background:#1e293b;
+            display:flex;
+            align-items:center;justify-content:center;
+            color:#94a3b8;font-size:.9em;
+        }
+        .preview iframe{width:100%;height:100%;border:none}
+        .info{margin-top:10px}
+        .title{
+            font-size:1em;font-weight:600;
+            color:#f8fafc;margin-bottom:4px;
+            line-height:1.4;word-break:break-word;
+        }
+        .meta{
+            font-size:.85em;color:#94a3b8;
+            word-break:break-word;
+        }
+        .open-btn{
+            margin-top:10px;
+            background:#60a5fa;color:#fff;
+            border:none;border-radius:8px;
+            padding:10px;font-weight:500;
+            cursor:pointer;transition:background .25s ease;
+            font-size:.95em;
+        }
+        .open-btn:hover{background:#3b82f6}
+        footer{
+            margin-top:30px;color:#94a3b8;
+            font-size:.9em;text-align:center;
+        }
+        .loader{
+            margin-top:60px;
+            border:6px solid rgba(255,255,255,.2);
+            border-top:6px solid #60a5fa;
+            border-radius:50%;width:45px;height:45px;
+            animation:spin 1s linear infinite;
+        }
+        @keyframes spin{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}
+        .pdf-viewer{
+            position:fixed;top:0;left:0;
+            width:100vw;height:100vh;
+            background:#0f172a;
+            z-index:999;
+            display:none;
+            flex-direction:column;
+        }
+        .pdf-viewer.active{display:flex}
+        .pdf-toolbar{
+            display:flex;justify-content:space-between;
+            align-items:center;padding:10px 14px;
+            background:rgba(15,23,42,.9);
+            border-bottom:1px solid rgba(255,255,255,.1);
+        }
+        .pdf-toolbar h2{
+            font-size:1em;color:#93c5fd;
+            font-weight:500;overflow:hidden;
+            text-overflow:ellipsis;white-space:nowrap;
+            max-width:80%;
+        }
+        .close-full{
+            background:#ef4444;border:none;color:#fff;
+            font-size:1.2em;width:36px;height:36px;
+            border-radius:50%;cursor:pointer;
+            transition:background .25s ease;
+        }
+        .close-full:hover{background:#dc2626}
+        .pdf-iframe{
+            flex-grow:1;border:none;width:100%;height:100%;
+        }
+        @media(max-width:768px){
+            header{font-size:1.3em;padding:12px}
+            .open-btn{font-size:.9em;padding:8px}
+            .meta{font-size:.8em}
+        }
+        @media(max-width:480px){
+            #feed{width:96%;gap:12px}
+            .card{padding:10px}
+            .preview{aspect-ratio:4/3}
+            .title{font-size:.95em}
+            .pdf-toolbar h2{font-size:.9em}
+            .close-full{width:32px;height:32px;font-size:1em}
+        }
+    </style>
 </head>
 
 <body>
-  <header>📚 PDF Stream</header>
-  <div id="feed"></div>
-  <div id="loader" class="loader"></div>
-  <footer>Powered by Archive & Your Backend</footer>
+<header>📚 PDF Stream</header>
+<div id="feed"></div>
+<div id="loader" class="loader"></div>
+<footer>Powered by Archive &amp; Your Backend</footer>
 
-  <!-- Fullscreen PDF Viewer -->
-  <div id="pdfViewer" class="pdf-viewer">
+<!-- Full‑screen PDF viewer -->
+<div id="pdfViewer" class="pdf-viewer">
     <div class="pdf-toolbar">
-      <h2 id="pdfTitle">PDF Viewer</h2>
-      <button class="close-full" id="closeViewer">&times;</button>
+        <h2 id="pdfTitle">PDF Viewer</h2>
+        <button class="close-full" id="closeViewer">&times;</button>
     </div>
-    <iframe id="pdfFrame" class="pdf-iframe" src="" allowfullscreen></iframe>
-  </div>
+    <iframe id="pdfFrame" class="pdf-iframe" src=""></iframe>
+</div>
 
-  <script>
-    // ==================== DOM Elements ====================
-    const FEED = document.getElementById('feed');
-    const LOADER = document.getElementById('loader');
-    const VIEWER = document.getElementById('pdfViewer');
-    const PDF_FRAME = document.getElementById('pdfFrame');
-    const PDF_TITLE = document.getElementById('pdfTitle');
-    const CLOSE_VIEWER = document.getElementById('closeViewer');
+<script>
+/* --------------------------------------------------------------
+ * Global references and constants
+ * ------------------------------------------------------------ */
+const FEED   = document.getElementById('feed');
+const LOADER = document.getElementById('loader');
+const VIEWER = document.getElementById('pdfViewer');
+const PDF_FRAME = document.getElementById('pdfFrame');
+const PDF_TITLE = document.getElementById('pdfTitle');
+const CLOSE_VIEWER = document.getElementById('closeViewer');
 
-    // ==================== Configuration ====================
-    const BACKEND_URL = 'https://pdfs_displaying_backend.video-api-ajaiahar.workers.dev';
-    const BATCH_SIZE = 30;
+const BACKEND_URL = 'https://pdfs_displaying_backend.video-api-ajaiahar.workers.dev';
 
-    // ==================== State ====================
-    let allData = [];
-    let currentIndex = 0;
-    let loadingMore = false;
-    let pendingPdfUrl = null;
-    let pendingPdfTitle = null;
-    let pendingPdfId = null;
-    let adReady = false;
-    
-    // Track unlocked PDFs (user watched ad for these)
-    const unlockedPdfs = new Set();
-    // Store card references by PDF ID
-    const cardRefs = new Map();
+let allData      = [];
+let currentIndex = 0;
+const BATCH_SIZE = 30;
+let loadingMore  = false;
 
-    // ==================== Android Bridge ====================
-    function isAndroidBridgeAvailable() {
-      return typeof Android !== 'undefined' && Android !== null;
-    }
+/* The PDF that will be displayed *after* the rewarded ad finishes. */
+let pendingPdf = null;
 
-    function preloadAd() {
-      if (isAndroidBridgeAvailable() && typeof Android.preloadRewardedAd === 'function') {
-        console.log('Preloading rewarded ad...');
-        Android.preloadRewardedAd();
-      }
-    }
-
-    function requestRewardedAd(url) {
-      if (isAndroidBridgeAvailable() && typeof Android.requestRewardedAd === 'function') {
-        console.log('Requesting rewarded ad for:', url);
-        Android.requestRewardedAd(url);
-        return true;
-      }
-      return false;
-    }
-
-    // Global callbacks for Android bridge
-    window.onAdPreloaded = function() {
-      console.log('Ad preloaded successfully');
-      adReady = true;
-    };
-
-    window.onAdFailedToPreload = function() {
-      console.log('Ad failed to preload');
-      adReady = false;
-    };
-
-    window.onAdCompleted = function(url) {
-      console.log('Ad completed, opening PDF:', url);
-      
-      // Mark this PDF as unlocked
-      if (pendingPdfId) {
-        unlockedPdfs.add(pendingPdfId);
-        // Show fullscreen button for this card
-        showFullscreenButton(pendingPdfId);
-      }
-      
-      if (url && pendingPdfTitle) {
-        openPdfViewer(pendingPdfTitle, url);
-      }
-      
-      pendingPdfUrl = null;
-      pendingPdfTitle = null;
-      pendingPdfId = null;
-      
-      // Preload next ad
-      preloadAd();
-    };
-
-    window.onAdNotAvailable = function() {
-      console.log('Ad not available, opening PDF directly');
-      if (pendingPdfUrl && pendingPdfTitle) {
-        openPdfViewer(pendingPdfTitle, pendingPdfUrl);
-      }
-      pendingPdfUrl = null;
-      pendingPdfTitle = null;
-      pendingPdfId = null;
-    };
-
-    // ==================== Fullscreen Button Management ====================
-    function showFullscreenButton(pdfId) {
-      const cardData = cardRefs.get(pdfId);
-      if (cardData && cardData.fullscreenBtn) {
-        cardData.fullscreenBtn.classList.add('visible');
-      }
-    }
-
-    // ==================== PDF Viewer Functions ====================
-    function getEmbedUrl(url) {
-      if (!url) return '';
-      if (url.includes('archive.org') && url.includes('/details/')) {
-        return url.replace('/details/', '/embed/');
-      }
-      return url;
-    }
-
-    function openPdfViewer(title, url) {
-      if (!url) return;
-      const embedUrl = getEmbedUrl(url);
-      PDF_TITLE.textContent = title || 'PDF Viewer';
-      PDF_FRAME.src = embedUrl;
-      VIEWER.classList.add('active');
-      document.body.style.overflow = 'hidden';
-    }
-
-    function closeViewer() {
-      VIEWER.classList.remove('active');
-      PDF_FRAME.src = '';
-      document.body.style.overflow = '';
-    }
-
-    function handleOpenPdf(pdfId, title, url) {
-      if (!url) return;
-
-      // Store pending PDF info
-      pendingPdfUrl = url;
-      pendingPdfTitle = title;
-      pendingPdfId = pdfId;
-
-      // Try to show rewarded ad first
-      const adRequested = requestRewardedAd(url);
-
-      // If Android bridge not available, open directly
-      if (!adRequested) {
-        console.log('Android bridge not available, opening PDF directly');
-        openPdfViewer(title, url);
-        pendingPdfUrl = null;
-        pendingPdfTitle = null;
-        pendingPdfId = null;
-      }
-    }
-
-    function handleDirectOpen(title, url) {
-      // Direct open without ad (for unlocked PDFs)
-      openPdfViewer(title, url);
-    }
-
-    // ==================== Card Creation ====================
-    function createCard(item) {
-      const pdfId = item.id || Math.random().toString(36).substr(2, 9);
-      
-      const card = document.createElement('div');
-      card.className = 'card';
-
-      const preview = document.createElement('div');
-      preview.className = 'preview';
-
-      if (item.archive_url && item.archive_url.includes('archive.org')) {
-        const embedUrl = getEmbedUrl(item.archive_url);
-        preview.innerHTML = `<iframe src="${embedUrl}" allowfullscreen loading="lazy"></iframe>`;
-      } else {
-        preview.innerHTML = `
-          <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-              <polyline points="14 2 14 8 20 8"></polyline>
-              <line x1="16" y1="13" x2="8" y2="13"></line>
-              <line x1="16" y1="17" x2="8" y2="17"></line>
-              <polyline points="10 9 9 9 8 9"></polyline>
-            </svg>
-            <span>No Preview</span>
-          </div>
-        `;
-      }
-
-      const info = document.createElement('div');
-      info.className = 'info';
-
-      const title = document.createElement('div');
-      title.className = 'title';
-      title.textContent = item.title || 'Untitled PDF';
-
-      const meta = document.createElement('div');
-      meta.className = 'meta';
-      meta.textContent = `👤 ${item.username || 'Anonymous'} • 🆔 ${item.id || 'N/A'}`;
-
-      info.appendChild(title);
-      info.appendChild(meta);
-
-      // Button container
-      const btnContainer = document.createElement('div');
-      btnContainer.className = 'btn-container';
-
-      // Fullscreen button (hidden by default, shown after ad watched)
-      const fullscreenBtn = document.createElement('button');
-      fullscreenBtn.className = 'fullscreen-btn';
-      if (unlockedPdfs.has(pdfId)) {
-        fullscreenBtn.classList.add('visible');
-      }
-      fullscreenBtn.innerHTML = `
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
-        </svg>
-        Open Fullscreen (Unlocked)
-      `;
-      fullscreenBtn.onclick = () => handleDirectOpen(item.title, item.archive_url);
-
-      // Open PDF button (with ad)
-      const openBtn = document.createElement('button');
-      openBtn.className = 'open-btn';
-      openBtn.textContent = '▶ Open PDF';
-      openBtn.onclick = () => handleOpenPdf(pdfId, item.title, item.archive_url);
-
-      btnContainer.appendChild(fullscreenBtn);
-      btnContainer.appendChild(openBtn);
-
-      card.appendChild(preview);
-      card.appendChild(info);
-      card.appendChild(btnContainer);
-
-      // Store reference for later updates
-      cardRefs.set(pdfId, {
-        card: card,
-        fullscreenBtn: fullscreenBtn,
-        item: item
-      });
-
-      return card;
-    }
-
-    // ==================== Data Loading ====================
-    function loadNextBatch() {
-      if (loadingMore || currentIndex >= allData.length) return;
-      loadingMore = true;
-
-      const nextBatch = allData.slice(currentIndex, currentIndex + BATCH_SIZE);
-      const fragment = document.createDocumentFragment();
-
-      nextBatch.forEach(item => {
-        fragment.appendChild(createCard(item));
-      });
-
-      FEED.appendChild(fragment);
-      currentIndex += BATCH_SIZE;
-      loadingMore = false;
-
-      if (currentIndex >= allData.length) {
-        window.removeEventListener('scroll', handleScroll);
-      }
-    }
-
-    function handleScroll() {
-      const { scrollTop, scrollHeight, clientHeight } = document.documentElement;
-      if (scrollTop + clientHeight >= scrollHeight - 100) {
-        loadNextBatch();
-      }
-    }
-
-    async function fetchData() {
-      try {
-        const res = await fetch(BACKEND_URL);
-        if (!res.ok) throw new Error('Network response was not ok');
-        
+/* --------------------------------------------------------------
+ * Data loading
+ * ------------------------------------------------------------ */
+async function fetchData() {
+    try {
+        const res  = await fetch(BACKEND_URL);
         const data = await res.json();
         LOADER.style.display = 'none';
 
         if (!data || data.length === 0) {
-          FEED.innerHTML = '<p class="empty-message">No PDFs found 😢</p>';
-          return;
+            FEED.innerHTML = "<p style='text-align:center;color:#94a3b8'>No PDFs found 😢</p>";
+            return;
         }
 
-        // Sort by ID descending
+        // newest first
         allData = data.sort((a, b) => Number(b.id) - Number(a.id));
         loadNextBatch();
+
+        /* Pre‑load the rewarded ad as soon as UI is ready */
+        if (window.Android && Android.preloadRewardedAd) {
+            Android.preloadRewardedAd();
+        }
+
         window.addEventListener('scroll', handleScroll);
-      } catch (err) {
+    } catch (err) {
         LOADER.style.display = 'none';
-        FEED.innerHTML = '<p class="error-message">Error loading data 😞<br><small>Please try again later</small></p>';
-        console.error('Fetch error:', err);
-      }
+        FEED.innerHTML = "<p style='text-align:center;color:#f87171'>Error loading data 😞</p>";
+        console.error(err);
+    }
+}
+
+/* --------------------------------------------------------------
+ * Batch rendering
+ * ------------------------------------------------------------ */
+function loadNextBatch() {
+    if (loadingMore) return;
+    loadingMore = true;
+
+    const nextBatch = allData.slice(currentIndex, currentIndex + BATCH_SIZE);
+    nextBatch.forEach(item => createCard(item));
+
+    currentIndex += BATCH_SIZE;
+    loadingMore = false;
+
+    if (currentIndex >= allData.length) {
+        window.removeEventListener('scroll', handleScroll);
+    }
+}
+
+/* --------------------------------------------------------------
+ * UI helpers – card creation
+ * ------------------------------------------------------------ */
+function createCard(item) {
+    const card = document.createElement('div');
+    card.className = 'card';
+
+    const preview = document.createElement('div');
+    preview.className = 'preview';
+
+    if (item.archive_url && item.archive_url.includes('archive.org')) {
+        const embedUrl = item.archive_url.replace('/details/', '/embed/');
+        preview.innerHTML = `<iframe src="${embedUrl}" allowfullscreen></iframe>`;
+    } else {
+        preview.textContent = 'No Preview Available';
     }
 
-    // ==================== Event Listeners ====================
-    CLOSE_VIEWER.onclick = closeViewer;
-    
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') closeViewer();
-    });
+    const info = document.createElement('div');
+    info.className = 'info';
+    info.innerHTML = `
+        <div class="title">${item.title || 'Untitled PDF'}</div>
+        <div class="meta">👤 ${item.username || 'Anonymous'} • 🆔 ${item.id || 'N/A'}</div>
+    `;
 
-    // ==================== Initialize ====================
-    document.addEventListener('DOMContentLoaded', () => {
-      // Preload ad on app start
-      preloadAd();
-      // Fetch PDF data
-      fetchData();
-    });
-  </script>
+    const openBtn = document.createElement('button');
+    openBtn.className = 'open-btn';
+    openBtn.textContent = 'Open PDF';
+    openBtn.onclick = () => openFullscreenPDF(item.title, item.archive_url);
+
+    card.append(preview, info, openBtn);
+    FEED.appendChild(card);
+}
+
+/* --------------------------------------------------------------
+ * Infinite‑scroll handler
+ * ------------------------------------------------------------ */
+function handleScroll() {
+    const { scrollTop, scrollHeight, clientHeight } = document.documentElement;
+    if (scrollTop + clientHeight >= scrollHeight - 10) {
+        loadNextBatch();
+    }
+}
+
+/* --------------------------------------------------------------
+ * PDF ➜ Rewarded‑Ad flow
+ * ------------------------------------------------------------ */
+function openFullscreenPDF(title, url) {
+    if (!url) {
+        console.warn('No PDF URL supplied');
+        return;
+    }
+
+    const embedUrl = url.includes('archive.org')
+        ? url.replace('/details/', '/embed/')
+        : url;
+
+    // keep the data we need after the ad finishes
+    pendingPdf = {
+        title: title || 'PDF Viewer',
+        url: embedUrl
+    };
+
+    // ask the native side to show a rewarded ad (pass the embed URL as the target)
+    if (window.Android && Android.requestRewardedAd) {
+        Android.requestRewardedAd(embedUrl);
+    } else {
+        // non‑Android fallback – show PDF immediately
+        console.warn('Android bridge not available – opening PDF without ad');
+        loadPdfNow();
+    }
+}
+
+/* Called from native when the rewarded ad has been watched completely */
+function onAdCompleted(pdfUrl) {
+    // we receive the URL we sent earlier; if something goes wrong we fall back to the saved object
+    const urlToLoad   = pdfUrl || (pendingPdf && pendingPdf.url);
+    const titleToLoad = pendingPdf ? pendingPdf.title : 'PDF Viewer';
+
+    if (!urlToLoad) {
+        console.error('PDF URL missing – cannot display PDF');
+        return;
+    }
+
+    PDF_TITLE.textContent = titleToLoad;
+    PDF_FRAME.src = urlToLoad;
+    VIEWER.classList.add('active');
+
+    // clean up – we no longer need the pending data
+    pendingPdf = null;
+}
+
+/* Called from native when a rewarded ad cannot be shown (e.g. no fill) */
+function onAdNotAvailable() {
+    console.warn('Rewarded ad not available – opening PDF directly');
+    loadPdfNow();
+}
+
+/* Optional hooks – give you a place to log pre‑load events */
+function onAdPreloaded()   { console.log('Rewarded ad pre‑loaded'); }
+function onAdFailedToPreload(){ console.warn('Failed to pre‑load rewarded ad'); }
+
+/* Load the PDF without showing any ad (fallback) */
+function loadPdfNow() {
+    if (!pendingPdf) {
+        console.warn('No pending PDF to load');
+        return;
+    }
+    PDF_TITLE.textContent = pendingPdf.title;
+    PDF_FRAME.src = pendingPdf.url;
+    VIEWER.classList.add('active');
+    pendingPdf = null;
+}
+
+/* --------------------------------------------------------------
+ * Viewer controls
+ * ------------------------------------------------------------ */
+CLOSE_VIEWER.onclick = closeViewer;
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeViewer(); });
+
+function closeViewer() {
+    VIEWER.classList.remove('active');
+    PDF_FRAME.src = '';
+    pendingPdf = null;
+}
+
+/* --------------------------------------------------------------
+ * Kick‑off everything
+ * ------------------------------------------------------------ */
+fetchData();
+</script>
 </body>
 </html>
