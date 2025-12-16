@@ -134,9 +134,9 @@
     /* ----------  FULL‑SCREEN PDF VIEWER  ---------- */
     .pdf-viewer {
       position: fixed;
-      inset: 0;                     /* top:0; left:0; right:0; bottom:0 */
+      inset: 0;
       background: #0f172a;
-      z-index: 9999;               /* keep it on top of everything */
+      z-index: 9999;
       display: none;
       flex-direction: column;
     }
@@ -234,7 +234,7 @@
     const pending = { title: null, url: null };
 
     // =====================================================================
-    // ------------- 1️⃣  AD CALLBACKS FROM THE NATIVE LAYER ---------------
+    // 1️⃣  AD CALLBACKS FROM THE NATIVE LAYER
     // =====================================================================
     window.onAdPreloaded = function () {
       console.log('✅ Rewarded ad pre‑loaded');
@@ -249,16 +249,13 @@
       }
       clearPending();
     };
-    // The native side now passes the URL as a parameter; we use it directly.
-    window.onAdCompleted = function (targetUrl) {
+    // IMPORTANT – use the URL we stored in `pending` (that is guaranteed to be valid)
+    window.onAdCompleted = function (/*targetUrl*/) {
       console.log('✅ Rewarded ad completed – opening PDF');
-      // `targetUrl` is the embed URL we asked the native side to show.
-      if (pending.title) {
-        // Use the title we stored earlier; use the URL from the callback.
-        openPDFViewer(pending.title, targetUrl);
+      if (pending.title && pending.url) {
+        openPDFViewer(pending.title, pending.url);
       } else {
-        // Fallback – title missing.
-        openPDFViewer('PDF Viewer', targetUrl);
+        console.warn('⚠️ Pending data missing – cannot open PDF');
       }
       clearPending();
     };
@@ -268,15 +265,20 @@
     }
 
     // =====================================================================
-    // ---------------- 2️⃣  PDF VIEWER LOGIC -------------------------------
+    // 2️⃣  PDF VIEWER LOGIC
     // =====================================================================
-    /** Show the fullscreen PDF viewer (and request OS fullscreen) */
+    /** Show the fullscreen PDF viewer (and request OS fullscreen – optional) */
     function openPDFViewer(title, embedUrl) {
       PDF_TITLE.textContent = title || 'PDF Viewer';
       PDF_FRAME.src = embedUrl;
       VIEWER.classList.add('active');
 
-      // ---- request native fullscreen (if supported) ----
+      // --------‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑
+      // The following fullscreen request is **optional**.
+      // Many browsers block a fullscreen request that is not a direct
+      // user‑gesture (the ad callback is asynchronous).  If it fails we
+      // simply stay in the overlay we already have.
+      // --------‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑
       const el = VIEWER;
       const requestFs = el.requestFullscreen ||
                         el.webkitRequestFullscreen ||
@@ -286,7 +288,7 @@
         requestFs.call(el).catch(err => console.warn('Fullscreen request failed', err));
       }
 
-      // Prevent background page scrolling while viewer is visible
+      // Prevent background scroll while the viewer is visible
       document.body.style.overflow = 'hidden';
     }
 
@@ -318,7 +320,6 @@
       VIEWER.classList.remove('active');
       PDF_FRAME.src = '';
 
-      // ---- exit native fullscreen ----
       const exitFs = document.exitFullscreen ||
                     document.webkitExitFullscreen ||
                     document.mozCancelFullScreen ||
@@ -336,7 +337,7 @@
     }
 
     // =====================================================================
-    // ------------------- 3️⃣  DATA FETCH & UI RENDER --------------------
+    // 3️⃣  DATA FETCH & UI RENDER
     // =====================================================================
     async function fetchData() {
       try {
@@ -375,7 +376,7 @@
     }
 
     function createCard(item) {
-      const card = document.createElement('div');
+      const card   = document.createElement('div');
       card.className = 'card';
 
       const preview = document.createElement('div');
@@ -412,13 +413,13 @@
     }
 
     // =====================================================================
-    // -------------------- 4️⃣  VIEWER CLOSE LOGIC ------------------------
+    // 4️⃣  VIEWER CLOSE LOGIC
     // =====================================================================
     CLOSE_VIEWER.onclick = closeViewer;
     document.addEventListener('keydown', e => { if (e.key === 'Escape') closeViewer(); });
 
     // =====================================================================
-    // ---------------------- 5️⃣  INITIALISATION -------------------------
+    // 5️⃣  INITIALISATION
     // =====================================================================
     document.addEventListener('DOMContentLoaded', () => {
       if (window.Android && typeof Android.preloadRewardedAd === 'function') {
