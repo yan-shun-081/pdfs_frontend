@@ -338,14 +338,16 @@
       adReady = false;
     };
 
-    window.onAdCompleted = function(url) {
-      console.log('Ad completed, opening PDF:', url);
-      if (url && pendingPdfTitle) {
-        openPdfViewer(pendingPdfTitle, url);
+    window.onAdCompleted = function() {
+      console.log('Ad completed, opening pending PDF');
+
+      if (pendingPdfUrl && pendingPdfTitle) {
+        openPdfViewer(pendingPdfTitle, pendingPdfUrl);
       }
+
       pendingPdfUrl = null;
       pendingPdfTitle = null;
-      // Preload next ad
+
       preloadAd();
     };
 
