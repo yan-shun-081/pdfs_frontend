@@ -131,18 +131,15 @@
       100% { transform: rotate(360deg); }
     }
 
+    /* ----------  FULL‑SCREEN PDF VIEWER  ---------- */
     .pdf-viewer {
       position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
+      inset: 0;                     /* top:0; left:0; right:0; bottom:0 */
       background: #0f172a;
-      z-index: 999;
+      z-index: 9999;               /* keep it on top of everything */
       display: none;
       flex-direction: column;
     }
-
     .pdf-viewer.active { display: flex; }
 
     .pdf-toolbar {
@@ -254,8 +251,8 @@
     };
     window.onAdCompleted = function(targetUrl) {
       console.log('✅ Rewarded ad completed – opening PDF');
-      // `targetUrl` is the same URL we stored in `pending.url`,
-      // but we use the argument to avoid any mismatch.
+      // `targetUrl` should be identical to pending.url, but we use the arg
+      // to avoid an unexpected mismatch.
       openPDFViewer(pending.title || '', targetUrl);
       clearPending();
     };
@@ -267,11 +264,24 @@
     // =====================================================================
     // ---------------- 3️⃣  PDF VIEWER LOGIC -------------------------------
     // =====================================================================
-    /** Show the fullscreen PDF viewer */
+    /** Show the fullscreen PDF viewer (and request true OS fullscreen) */
     function openPDFViewer(title, embedUrl) {
       PDF_TITLE.textContent = title || 'PDF Viewer';
       PDF_FRAME.src = embedUrl;
       VIEWER.classList.add('active');
+
+      // ------------ request native fullscreen ------------
+      const el = VIEWER;
+      const requestFs = el.requestFullscreen ||
+                        el.webkitRequestFullscreen ||
+                        el.mozRequestFullScreen ||
+                        el.msRequestFullscreen;
+      if (requestFs) {
+        requestFs.call(el).catch(err => console.warn('Fullscreen request failed', err));
+      }
+
+      // Prevent background page scrolling while the viewer is shown
+      document.body.style.overflow = 'hidden';
     }
 
     /** Called when the user clicks “Open PDF”. */
@@ -282,7 +292,7 @@
         ? url.replace('/details/', '/embed/')
         : url;
 
-      // Store data while we are waiting for the ad callback.
+      // Store info while waiting for the ad callbacks
       pending.title = title;
       pending.url   = embedUrl;
 
@@ -290,11 +300,32 @@
         console.log('🔔 Requesting rewarded ad before opening PDF');
         Android.requestRewardedAd(embedUrl);
       } else {
-        // No bridge → just open the PDF.
+        // No Android bridge → open directly
         console.log('⚙️ No Android bridge – opening PDF without ad');
         openPDFViewer(title, embedUrl);
         clearPending();
       }
+    }
+
+    /** Close the PDF viewer and exit fullscreen if we are in it */
+    function closeViewer() {
+      VIEWER.classList.remove('active');
+      PDF_FRAME.src = '';
+
+      // ------------ exit native fullscreen ------------
+      const exitFs = document.exitFullscreen ||
+                     document.webkitExitFullscreen ||
+                     document.mozCancelFullScreen ||
+                     document.msExitFullscreen;
+      if (exitFs && (document.fullscreenElement ||
+                     document.webkitFullscreenElement ||
+                     document.mozFullScreenElement ||
+                     document.msFullscreenElement)) {
+        exitFs.call(document).catch(err => console.warn('Exit fullscreen failed', err));
+      }
+
+      // Re‑enable page scrolling
+      document.body.style.overflow = '';
     }
 
     // =====================================================================
@@ -378,11 +409,6 @@
     // =====================================================================
     CLOSE_VIEWER.onclick = closeViewer;
     document.addEventListener('keydown', e => { if (e.key === 'Escape') closeViewer(); });
-
-    function closeViewer() {
-      VIEWER.classList.remove('active');
-      PDF_FRAME.src = '';
-    }
 
     // =====================================================================
     // ---------------------- 6️⃣  INITIALISATION -------------------------
