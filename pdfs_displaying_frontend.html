@@ -151,23 +151,23 @@
 
 <script>
 /* --------------------------------------------------------------
- * Global references and constants
+ * Global references & constants
  * ------------------------------------------------------------ */
-const FEED   = document.getElementById('feed');
-const LOADER = document.getElementById('loader');
-const VIEWER = document.getElementById('pdfViewer');
-const PDF_FRAME = document.getElementById('pdfFrame');
-const PDF_TITLE = document.getElementById('pdfTitle');
-const CLOSE_VIEWER = document.getElementById('closeViewer');
+const FEED          = document.getElementById('feed');
+const LOADER        = document.getElementById('loader');
+const VIEWER        = document.getElementById('pdfViewer');
+const PDF_FRAME     = document.getElementById('pdfFrame');
+const PDF_TITLE     = document.getElementById('pdfTitle');
+const CLOSE_VIEWER  = document.getElementById('closeViewer');
 
-const BACKEND_URL = 'https://pdfs_displaying_backend.video-api-ajaiahar.workers.dev';
+const BACKEND_URL   = 'https://pdfs_displaying_backend.video-api-ajaiahar.workers.dev';
 
-let allData      = [];
-let currentIndex = 0;
-const BATCH_SIZE = 30;
-let loadingMore  = false;
+let allData        = [];
+let currentIndex   = 0;
+const BATCH_SIZE   = 30;
+let loadingMore    = false;
 
-/* The PDF that will be displayed *after* the rewarded ad finishes. */
+/* The most‑recent PDF the user asked to open (title + embed URL). */
 let pendingPdf = null;
 
 /* --------------------------------------------------------------
@@ -189,7 +189,7 @@ async function fetchData() {
         loadNextBatch();
 
         /* Pre‑load the rewarded ad as soon as UI is ready */
-        if (window.Android && Android.preloadRewardedAd) {
+        if (window.Android && typeof Android.preloadRewardedAd === 'function') {
             Android.preloadRewardedAd();
         }
 
@@ -220,7 +220,7 @@ function loadNextBatch() {
 }
 
 /* --------------------------------------------------------------
- * UI helpers – card creation
+ * UI – card creation
  * ------------------------------------------------------------ */
 function createCard(item) {
     const card = document.createElement('div');
@@ -263,74 +263,64 @@ function handleScroll() {
 }
 
 /* --------------------------------------------------------------
- * PDF ➜ Rewarded‑Ad flow
+ * Show PDF (no native code required)
  * ------------------------------------------------------------ */
-function openFullscreenPDF(title, url) {
-    if (!url) {
-        console.warn('No PDF URL supplied');
+function showPdf(data) {
+    PDF_TITLE.textContent = data.title;
+    PDF_FRAME.src = data.url;
+    VIEWER.classList.add('active');
+}
+
+/* --------------------------------------------------------------
+ * Click → open PDF first, then request rewarded ad
+ * ------------------------------------------------------------ */
+function openFullscreenPDF(title, rawUrl) {
+    if (!rawUrl) {
+        console.warn('No archive URL for this item');
         return;
     }
 
-    const embedUrl = url.includes('archive.org')
-        ? url.replace('/details/', '/embed/')
-        : url;
+    const embedUrl = rawUrl.includes('archive.org')
+        ? rawUrl.replace('/details/', '/embed/')
+        : rawUrl;
 
-    // keep the data we need after the ad finishes
+    // remember the most‑recent PDF – *do not* delete it yet
     pendingPdf = {
         title: title || 'PDF Viewer',
-        url: embedUrl
+        url:   embedUrl
     };
 
-    // ask the native side to show a rewarded ad (pass the embed URL as the target)
-    if (window.Android && Android.requestRewardedAd) {
-        Android.requestRewardedAd(embedUrl);
+    // 1️⃣ Show the PDF immediately
+    showPdf(pendingPdf);
+
+    // 2️⃣ Ask the native side to play a rewarded ad (if one exists)
+    if (window.Android && typeof Android.requestRewardedAd === 'function') {
+        Android.requestRewardedAd();          // overload without argument exists
     } else {
-        // non‑Android fallback – show PDF immediately
-        console.warn('Android bridge not available – opening PDF without ad');
-        loadPdfNow();
+        console.warn('Android bridge not available – ad will not be shown');
     }
 }
 
-/* Called from native when the rewarded ad has been watched completely */
-function onAdCompleted(pdfUrl) {
-    // we receive the URL we sent earlier; if something goes wrong we fall back to the saved object
-    const urlToLoad   = pdfUrl || (pendingPdf && pendingPdf.url);
-    const titleToLoad = pendingPdf ? pendingPdf.title : 'PDF Viewer';
-
-    if (!urlToLoad) {
-        console.error('PDF URL missing – cannot display PDF');
-        return;
+/* --------------------------------------------------------------
+ * Callbacks invoked from the Android side
+ * ------------------------------------------------------------ */
+function onAdCompleted(_ignored) {
+    // The ad finished – re‑show the *latest* PDF (may simply be a refresh)
+    if (pendingPdf) {
+        showPdf(pendingPdf);
+    } else {
+        console.warn('No pending PDF when ad completed');
     }
-
-    PDF_TITLE.textContent = titleToLoad;
-    PDF_FRAME.src = urlToLoad;
-    VIEWER.classList.add('active');
-
-    // clean up – we no longer need the pending data
-    pendingPdf = null;
 }
 
-/* Called from native when a rewarded ad cannot be shown (e.g. no fill) */
+/* If there is no ad (or it fails to show) we simply keep the PDF already on screen */
 function onAdNotAvailable() {
-    console.warn('Rewarded ad not available – opening PDF directly');
-    loadPdfNow();
+    console.info('Rewarded ad not available – PDF stays open');
 }
 
-/* Optional hooks – give you a place to log pre‑load events */
+/* Optional – just for debugging */
 function onAdPreloaded()   { console.log('Rewarded ad pre‑loaded'); }
 function onAdFailedToPreload(){ console.warn('Failed to pre‑load rewarded ad'); }
-
-/* Load the PDF without showing any ad (fallback) */
-function loadPdfNow() {
-    if (!pendingPdf) {
-        console.warn('No pending PDF to load');
-        return;
-    }
-    PDF_TITLE.textContent = pendingPdf.title;
-    PDF_FRAME.src = pendingPdf.url;
-    VIEWER.classList.add('active');
-    pendingPdf = null;
-}
 
 /* --------------------------------------------------------------
  * Viewer controls
@@ -345,7 +335,7 @@ function closeViewer() {
 }
 
 /* --------------------------------------------------------------
- * Kick‑off everything
+ * Kick‑off
  * ------------------------------------------------------------ */
 fetchData();
 </script>
