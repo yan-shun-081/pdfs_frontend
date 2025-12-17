@@ -245,14 +245,14 @@
     // ----------------------------------------------------------------------
     const API_BASE = "https://pdfs_info_database.video-api-ajaiahar.workers.dev";
 
-    const home = document.getElementById("home");
-    const uploadPage = document.getElementById("uploadPage");
-    const viewerPage = document.getElementById("viewerPage");
-    const goUpload = document.getElementById("goUpload");
-    const goBack = document.getElementById("goBack");
-    const form = document.getElementById("uploadForm");
-    const message = document.getElementById("message");
-    const searchBtn = document.getElementById("searchBtn");
+    const home        = document.getElementById("home");
+    const uploadPage  = document.getElementById("uploadPage");
+    const viewerPage  = document.getElementById("viewerPage");
+    const goUpload    = document.getElementById("goUpload");
+    const goBack      = document.getElementById("goBack");
+    const form        = document.getElementById("uploadForm");
+    const message     = document.getElementById("message");
+    const searchBtn   = document.getElementById("searchBtn");
     const searchInput = document.getElementById("searchInput");
     const searchResults = document.getElementById("searchResults");
     const viewerTitle = document.getElementById("viewerTitle");
@@ -287,7 +287,7 @@
 
       const archiveUrl = document.getElementById("archive_url").value.trim();
 
-      // Allow only archive.org/details URLs
+      // allow only archive.org/details URLs
       if (!archiveUrl.startsWith("https://archive.org/details/")) {
         message.textContent = "❌ Only archive.org/details URLs are allowed.";
         message.className = "error";
@@ -324,42 +324,36 @@
     };
 
     // ----------------------------------------------------------------------
-    //  Rewarded‑ad callbacks (called from Android)
+    //  Rewarded‑ad callbacks (optional – we only log them now)
     // ----------------------------------------------------------------------
-    // A pending URL and title are set when the user clicks a result.
     function onAdCompleted(url) {
-      // Android reports the URL it received; we already stored title.
-      const title = window.pendingTitle || "";
-      openViewer(url, title);
-      clearPending();
+      console.log("✅ Rewarded‑ad completed – reward granted.");
+      // No need to open the PDF here; it has already been opened.
     }
 
     function onAdNotAvailable() {
-      // If the ad cannot be shown, just open the PDF.
-      if (window.pendingUrl) {
-        openViewer(window.pendingUrl, window.pendingTitle);
-        clearPending();
-      }
+      console.warn("⚠️ Rewarded‑ad not available.");
     }
 
     function onAdPreloaded() {
-      console.log("✅ Rewarded ad preloaded");
+      console.log("✅ Rewarded ad preloaded.");
     }
 
     function onAdFailedToPreload() {
-      console.warn("⚠️ Rewarded ad failed to preload");
+      console.warn("⚠️ Failed to preload rewarded ad.");
     }
 
-    function clearPending() {
-      window.pendingUrl = null;
-      window.pendingTitle = null;
-    }
+    // expose globally for the Android bridge
+    window.onAdCompleted   = onAdCompleted;
+    window.onAdNotAvailable = onAdNotAvailable;
+    window.onAdPreloaded    = onAdPreloaded;
+    window.onAdFailedToPreload = onAdFailedToPreload;
 
     // ----------------------------------------------------------------------
-    //  Viewer helper
+    //  Viewer helper – opens the PDF instantly
     // ----------------------------------------------------------------------
     function openViewer(url, title) {
-      // Convert archive.org/details/ → archive.org/embed/
+      // Convert archive.org/details/... to archive.org/embed/... for PDF preview
       let viewerUrl = url;
       if (url.includes("archive.org/details/")) {
         viewerUrl = url.replace("/details/", "/embed/");
@@ -381,7 +375,7 @@
         return;
       }
 
-      searchResults.innerHTML = `<p>Searching...</p>`;
+      searchResults.innerHTML = `<p>Searching…</p>`;
 
       const payload = {};
       if (/^\d+$/.test(query)) {
@@ -405,7 +399,6 @@
           return;
         }
 
-        // API may return an object or an array
         const results = Array.isArray(data) ? data : [data];
 
         // Render result cards
@@ -419,25 +412,21 @@
           </div>
         `).join("");
 
-        // Attach click handlers that trigger the rewarded ad flow
-        document.querySelectorAll(".result-card").forEach(card => {
-          card.onclick = () => {
+        // Click -> open PDF + request ad (parallel)
+        document.querySelectorAll('.result-card').forEach(card => {
+          card.addEventListener('click', () => {
             const url = card.dataset.url;
             const title = card.dataset.title;
 
-            // Store pending values for the ad callbacks
-            window.pendingUrl = url;
-            window.pendingTitle = title;
+            // 1️⃣ Open the viewer immediately
+            openViewer(url, title);
 
-            // Ask Android to show a rewarded ad (pass URL so it can be echoed back)
+            // 2️⃣ Ask the native side to show a rewarded ad (if available)
             if (window.Android && typeof Android.requestRewardedAd === "function") {
-              Android.requestRewardedAd(url);
-            } else {
-              // If the bridge is missing (e.g., running in a browser), just open directly
-              openViewer(url, title);
-              clearPending();
+              // overload without URL works – you can also pass a dummy value if you want
+              Android.requestRewardedAd();
             }
-          };
+          });
         });
 
       } catch (err) {
@@ -461,15 +450,6 @@
     if (window.Android && typeof Android.preloadRewardedAd === "function") {
       Android.preloadRewardedAd();
     }
-
-    // ----------------------------------------------------------------------
-    //  (Optional) expose the callbacks on window for older Android bridge naming
-    // ----------------------------------------------------------------------
-    // This ensures the functions are globally reachable from the Java side.
-    window.onAdCompleted = onAdCompleted;
-    window.onAdNotAvailable = onAdNotAvailable;
-    window.onAdPreloaded = onAdPreloaded;
-    window.onAdFailedToPreload = onAdFailedToPreload;
   </script>
 </body>
 </html>
