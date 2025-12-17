@@ -240,6 +240,9 @@
   </div>
 
   <script>
+    // ----------------------------------------------------------------------
+    //  Global constants & DOM references
+    // ----------------------------------------------------------------------
     const API_BASE = "https://pdfs_info_database.video-api-ajaiahar.workers.dev";
 
     const home = document.getElementById("home");
@@ -257,7 +260,9 @@
     const backToSearch = document.getElementById("backToSearch");
     const fullscreenBtn = document.getElementById("fullscreenBtn");
 
-    // Page Switch
+    // ----------------------------------------------------------------------
+    //  Page navigation
+    // ----------------------------------------------------------------------
     goUpload.onclick = () => {
       home.classList.add("hidden");
       uploadPage.classList.remove("hidden");
@@ -272,7 +277,9 @@
       viewerFrame.src = "";
     };
 
-    // ✅ Handle Upload
+    // ----------------------------------------------------------------------
+    //  Upload handling
+    // ----------------------------------------------------------------------
     form.onsubmit = async (e) => {
       e.preventDefault();
       message.textContent = "Uploading...";
@@ -280,7 +287,7 @@
 
       const archiveUrl = document.getElementById("archive_url").value.trim();
 
-      // 🔒 Allow only archive.org/details URLs
+      // Allow only archive.org/details URLs
       if (!archiveUrl.startsWith("https://archive.org/details/")) {
         message.textContent = "❌ Only archive.org/details URLs are allowed.";
         message.className = "error";
@@ -316,15 +323,70 @@
       }
     };
 
-    // ✅ Handle Search
+    // ----------------------------------------------------------------------
+    //  Rewarded‑ad callbacks (called from Android)
+    // ----------------------------------------------------------------------
+    // A pending URL and title are set when the user clicks a result.
+    function onAdCompleted(url) {
+      // Android reports the URL it received; we already stored title.
+      const title = window.pendingTitle || "";
+      openViewer(url, title);
+      clearPending();
+    }
+
+    function onAdNotAvailable() {
+      // If the ad cannot be shown, just open the PDF.
+      if (window.pendingUrl) {
+        openViewer(window.pendingUrl, window.pendingTitle);
+        clearPending();
+      }
+    }
+
+    function onAdPreloaded() {
+      console.log("✅ Rewarded ad preloaded");
+    }
+
+    function onAdFailedToPreload() {
+      console.warn("⚠️ Rewarded ad failed to preload");
+    }
+
+    function clearPending() {
+      window.pendingUrl = null;
+      window.pendingTitle = null;
+    }
+
+    // ----------------------------------------------------------------------
+    //  Viewer helper
+    // ----------------------------------------------------------------------
+    function openViewer(url, title) {
+      // Convert archive.org/details/ → archive.org/embed/
+      let viewerUrl = url;
+      if (url.includes("archive.org/details/")) {
+        viewerUrl = url.replace("/details/", "/embed/");
+      }
+      viewerTitle.textContent = title || "Viewer";
+      viewerFrame.src = viewerUrl;
+
+      home.classList.add("hidden");
+      viewerPage.classList.remove("hidden");
+    }
+
+    // ----------------------------------------------------------------------
+    //  Search handling
+    // ----------------------------------------------------------------------
     searchBtn.onclick = async () => {
       const query = searchInput.value.trim();
-      if (!query) return alert("Please enter title, username, or ID to search!");
+      if (!query) {
+        alert("Please enter title, username, or ID to search!");
+        return;
+      }
+
       searchResults.innerHTML = `<p>Searching...</p>`;
 
       const payload = {};
-      if (/^\d+$/.test(query)) payload.id = Number(query);
-      else {
+      if (/^\d+$/.test(query)) {
+        payload.id = Number(query);
+      } else {
         payload.title = query;
         payload.username = query;
       }
@@ -337,14 +399,18 @@
         });
 
         const data = await res.json();
+
         if (!res.ok || !data || data.length === 0) {
           searchResults.innerHTML = `<p style="color:#f87171;">No results found.</p>`;
           return;
         }
 
+        // API may return an object or an array
         const results = Array.isArray(data) ? data : [data];
+
+        // Render result cards
         searchResults.innerHTML = results.map(item => `
-          <div class="result-card" data-url="${item.archive_url}" data-title="${item.title}">
+          <div class="result-card" data-url="${item.archive_url}" data-title="${item.title || 'Untitled'}">
             <div class="result-title">${item.title || "Untitled"}</div>
             <div class="result-meta">
               👤 ${item.username || "Unknown"}<br>
@@ -353,21 +419,24 @@
           </div>
         `).join("");
 
-        // 🖼 Click to open viewer
+        // Attach click handlers that trigger the rewarded ad flow
         document.querySelectorAll(".result-card").forEach(card => {
           card.onclick = () => {
             const url = card.dataset.url;
             const title = card.dataset.title;
-            viewerTitle.textContent = title;
 
-            let viewerUrl = url;
-            if (url.includes("archive.org/details/")) {
-              viewerUrl = url.replace("/details/", "/embed/");
+            // Store pending values for the ad callbacks
+            window.pendingUrl = url;
+            window.pendingTitle = title;
+
+            // Ask Android to show a rewarded ad (pass URL so it can be echoed back)
+            if (window.Android && typeof Android.requestRewardedAd === "function") {
+              Android.requestRewardedAd(url);
+            } else {
+              // If the bridge is missing (e.g., running in a browser), just open directly
+              openViewer(url, title);
+              clearPending();
             }
-
-            viewerFrame.src = viewerUrl;
-            home.classList.add("hidden");
-            viewerPage.classList.remove("hidden");
           };
         });
 
@@ -377,12 +446,30 @@
       }
     };
 
-    // 🧭 Full Screen
+    // ----------------------------------------------------------------------
+    //  Full‑screen button for the viewer
+    // ----------------------------------------------------------------------
     fullscreenBtn.onclick = () => {
       if (viewerFrame.requestFullscreen) viewerFrame.requestFullscreen();
       else if (viewerFrame.webkitRequestFullscreen) viewerFrame.webkitRequestFullscreen();
       else if (viewerFrame.msRequestFullscreen) viewerFrame.msRequestFullscreen();
     };
+
+    // ----------------------------------------------------------------------
+    //  Pre‑load a rewarded ad as soon as the page loads
+    // ----------------------------------------------------------------------
+    if (window.Android && typeof Android.preloadRewardedAd === "function") {
+      Android.preloadRewardedAd();
+    }
+
+    // ----------------------------------------------------------------------
+    //  (Optional) expose the callbacks on window for older Android bridge naming
+    // ----------------------------------------------------------------------
+    // This ensures the functions are globally reachable from the Java side.
+    window.onAdCompleted = onAdCompleted;
+    window.onAdNotAvailable = onAdNotAvailable;
+    window.onAdPreloaded = onAdPreloaded;
+    window.onAdFailedToPreload = onAdFailedToPreload;
   </script>
 </body>
 </html>
