@@ -240,9 +240,9 @@
   </div>
 
   <script>
-    // ----------------------------------------------------------------------
-    //  Global constants & DOM references
-    // ----------------------------------------------------------------------
+    // --------------------------------------------------------------
+    // Global constants & element references
+    // --------------------------------------------------------------
     const API_BASE = "https://pdfs_info_database.video-api-ajaiahar.workers.dev";
 
     const home        = document.getElementById("home");
@@ -260,9 +260,9 @@
     const backToSearch = document.getElementById("backToSearch");
     const fullscreenBtn = document.getElementById("fullscreenBtn");
 
-    // ----------------------------------------------------------------------
-    //  Page navigation
-    // ----------------------------------------------------------------------
+    // --------------------------------------------------------------
+    // Page navigation
+    // --------------------------------------------------------------
     goUpload.onclick = () => {
       home.classList.add("hidden");
       uploadPage.classList.remove("hidden");
@@ -277,9 +277,9 @@
       viewerFrame.src = "";
     };
 
-    // ----------------------------------------------------------------------
-    //  Upload handling
-    // ----------------------------------------------------------------------
+    // --------------------------------------------------------------
+    // Upload handling
+    // --------------------------------------------------------------
     form.onsubmit = async (e) => {
       e.preventDefault();
       message.textContent = "Uploading...";
@@ -287,7 +287,7 @@
 
       const archiveUrl = document.getElementById("archive_url").value.trim();
 
-      // allow only archive.org/details URLs
+      // Accept only archive.org/details URLs
       if (!archiveUrl.startsWith("https://archive.org/details/")) {
         message.textContent = "❌ Only archive.org/details URLs are allowed.";
         message.className = "error";
@@ -309,6 +309,7 @@
         });
 
         const json = await res.json();
+
         if (res.ok && json.success) {
           message.textContent = "✅ Upload successful!";
           message.className = "success";
@@ -323,16 +324,16 @@
       }
     };
 
-    // ----------------------------------------------------------------------
-    //  Rewarded‑ad callbacks (optional – we only log them now)
-    // ----------------------------------------------------------------------
+    // --------------------------------------------------------------
+    // Rewarded‑ad callbacks (only logging – PDF already opened)
+    // --------------------------------------------------------------
     function onAdCompleted(url) {
       console.log("✅ Rewarded‑ad completed – reward granted.");
-      // No need to open the PDF here; it has already been opened.
+      // The PDF view is already visible, nothing else to do.
     }
 
     function onAdNotAvailable() {
-      console.warn("⚠️ Rewarded‑ad not available.");
+      console.warn("⚠️ Rewarded‑ad not available – proceeding without ad.");
     }
 
     function onAdPreloaded() {
@@ -343,17 +344,16 @@
       console.warn("⚠️ Failed to preload rewarded ad.");
     }
 
-    // expose globally for the Android bridge
-    window.onAdCompleted   = onAdCompleted;
-    window.onAdNotAvailable = onAdNotAvailable;
-    window.onAdPreloaded    = onAdPreloaded;
-    window.onAdFailedToPreload = onAdFailedToPreload;
+    // Expose for the Android bridge
+    window.onAdCompleted        = onAdCompleted;
+    window.onAdNotAvailable     = onAdNotAvailable;
+    window.onAdPreloaded        = onAdPreloaded;
+    window.onAdFailedToPreload  = onAdFailedToPreload;
 
-    // ----------------------------------------------------------------------
-    //  Viewer helper – opens the PDF instantly
-    // ----------------------------------------------------------------------
+    // --------------------------------------------------------------
+    // Viewer helper – open PDF instantly
+    // --------------------------------------------------------------
     function openViewer(url, title) {
-      // Convert archive.org/details/... to archive.org/embed/... for PDF preview
       let viewerUrl = url;
       if (url.includes("archive.org/details/")) {
         viewerUrl = url.replace("/details/", "/embed/");
@@ -365,9 +365,9 @@
       viewerPage.classList.remove("hidden");
     }
 
-    // ----------------------------------------------------------------------
-    //  Search handling
-    // ----------------------------------------------------------------------
+    // --------------------------------------------------------------
+    // Search handling
+    // --------------------------------------------------------------
     searchBtn.onclick = async () => {
       const query = searchInput.value.trim();
       if (!query) {
@@ -403,7 +403,9 @@
 
         // Render result cards
         searchResults.innerHTML = results.map(item => `
-          <div class="result-card" data-url="${item.archive_url}" data-title="${item.title || 'Untitled'}">
+          <div class="result-card"
+               data-url="${item.archive_url}"
+               data-title="${item.title || 'Untitled'}">
             <div class="result-title">${item.title || "Untitled"}</div>
             <div class="result-meta">
               👤 ${item.username || "Unknown"}<br>
@@ -412,19 +414,21 @@
           </div>
         `).join("");
 
-        // Click -> open PDF + request ad (parallel)
+        // When a card is clicked → open PDF *and* request a rewarded ad
         document.querySelectorAll('.result-card').forEach(card => {
           card.addEventListener('click', () => {
-            const url = card.dataset.url;
+            const url   = card.dataset.url;
             const title = card.dataset.title;
 
-            // 1️⃣ Open the viewer immediately
+            // 1️⃣ Show the PDF immediately
             openViewer(url, title);
 
-            // 2️⃣ Ask the native side to show a rewarded ad (if available)
+            // 2️⃣ Ask Android to show the rewarded ad (pass the same URL so the
+            //    Java side can later call onAdCompleted(url) if it wants)
             if (window.Android && typeof Android.requestRewardedAd === "function") {
-              // overload without URL works – you can also pass a dummy value if you want
-              Android.requestRewardedAd();
+              Android.requestRewardedAd(url);   // <-- pass a string, not empty
+            } else {
+              console.warn("Android bridge not available – ad will not be shown.");
             }
           });
         });
@@ -435,18 +439,18 @@
       }
     };
 
-    // ----------------------------------------------------------------------
-    //  Full‑screen button for the viewer
-    // ----------------------------------------------------------------------
+    // --------------------------------------------------------------
+    // Full‑screen button for the viewer
+    // --------------------------------------------------------------
     fullscreenBtn.onclick = () => {
       if (viewerFrame.requestFullscreen) viewerFrame.requestFullscreen();
       else if (viewerFrame.webkitRequestFullscreen) viewerFrame.webkitRequestFullscreen();
       else if (viewerFrame.msRequestFullscreen) viewerFrame.msRequestFullscreen();
     };
 
-    // ----------------------------------------------------------------------
-    //  Pre‑load a rewarded ad as soon as the page loads
-    // ----------------------------------------------------------------------
+    // --------------------------------------------------------------
+    // Pre‑load a rewarded ad when the page loads
+    // --------------------------------------------------------------
     if (window.Android && typeof Android.preloadRewardedAd === "function") {
       Android.preloadRewardedAd();
     }
