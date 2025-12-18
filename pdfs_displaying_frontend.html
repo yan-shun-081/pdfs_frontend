@@ -1,4 +1,4 @@
-x<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -6,7 +6,8 @@ x<!DOCTYPE html>
   <title>📚 PDF Stream</title>
 
   <!-- Font -->
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap"
+        rel="stylesheet">
 
   <style>
     * { box-sizing:border-box; margin:0; padding:0; }
@@ -134,6 +135,44 @@ x<!DOCTYPE html>
       width:100%; height:100%;
     }
 
+    /* ----- modal (watch ad / wait) ----- */
+    .modal{
+      position:fixed; top:0; left:0;
+      width:100%; height:100%;
+      background:rgba(0,0,0,0.6);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      z-index:1000;
+    }
+    .modal.active{ display:flex; }
+    .modal-content{
+      background:#1e293b;
+      border-radius:12px;
+      padding:20px;
+      text-align:center;
+      max-width:90%;
+      width:340px;
+      color:#f8fafc;
+    }
+    .modal-btn{
+      background:#60a5fa;
+      color:#fff;
+      border:none;
+      border-radius:8px;
+      padding:10px 14px;
+      margin:8px;
+      cursor:pointer;
+      font-weight:500;
+      transition:background .25s ease;
+    }
+    .modal-btn:hover{ background:#3b82f6; }
+    .countdown{
+      margin-top:12px;
+      font-size:1.1em;
+      color:#94a3b8;
+    }
+
     @media (max-width:768px){
       header{font-size:1.3em;padding:12px;}
       .open-btn{font-size:.9em;padding:8px;}
@@ -154,7 +193,7 @@ x<!DOCTYPE html>
   <header>📚 PDF Stream</header>
   <div id="feed"></div>
   <div id="loader" class="loader"></div>
-  <footer>Powered by Archive & Your Backend</footer>
+  <footer>Powered by Archive &amp; Your Backend</footer>
 
   <!-- Full‑screen PDF viewer (no ad container) -->
   <div id="pdfViewer" class="pdf-viewer">
@@ -165,25 +204,48 @@ x<!DOCTYPE html>
     <iframe id="pdfFrame" class="pdf-iframe" src=""></iframe>
   </div>
 
+  <!-- Modal to choose: watch ad or wait 45 sec -->
+  <div id="choiceModal" class="modal">
+    <div class="modal-content">
+      <h2>Select how to view the PDF</h2>
+      <p>You can either watch a rewarded ad or wait 45 seconds.</p>
+      <div class="modal-buttons">
+        <button id="watchAdBtn" class="modal-btn">Watch Ad</button>
+        <button id="waitBtn" class="modal-btn">Wait 45 seconds</button>
+      </div>
+      <div id="countdownTimer" class="countdown" style="display:none;"></div>
+    </div>
+  </div>
+
   <script>
     /* ==========================
-       Global DOM references
+       GLOBAL DOM REFERENCES
     ========================== */
-    const FEED       = document.getElementById('feed');
-    const LOADER     = document.getElementById('loader');
-    const VIEWER     = document.getElementById('pdfViewer');
-    const PDF_FRAME  = document.getElementById('pdfFrame');
-    const PDF_TITLE  = document.getElementById('pdfTitle');
-    const CLOSE_VIEW = document.getElementById('closeViewer');
+    const FEED          = document.getElementById('feed');
+    const LOADER        = document.getElementById('loader');
+    const VIEWER        = document.getElementById('pdfViewer');
+    const PDF_FRAME     = document.getElementById('pdfFrame');
+    const PDF_TITLE     = document.getElementById('pdfTitle');
+    const CLOSE_VIEW    = document.getElementById('closeViewer');
+
+    const CHOICE_MODAL  = document.getElementById('choiceModal');
+    const WATCH_AD_BTN  = document.getElementById('watchAdBtn');
+    const WAIT_BTN      = document.getElementById('waitBtn');
+    const COUNTDOWN_TXT = document.getElementById('countdownTimer');
 
     const BACKEND_URL = 'https://pdfs_displaying_backend.video-api-ajaiahar.workers.dev';
+
     let allData = [];
     let currentIndex = 0;
     const BATCH_SIZE = 30;
     let loadingMore = false;
 
+    // Holds the PDF the user wants to view until the ad finishes or the timer expires
+    let pendingPDF = null;          // {title:string, embedUrl:string}
+    let countdownInterval = null;  // reference to setInterval when waiting 45 s
+
     /* ==========================
-       1️⃣  FETCH DATA FROM BACKEND
+       1️⃣ FETCH DATA FROM BACKEND
     ========================== */
     async function fetchData() {
       try {
@@ -208,7 +270,7 @@ x<!DOCTYPE html>
     }
 
     /* ==========================
-       2️⃣  LOAD NEXT BATCH OF CARDS
+       2️⃣ LOAD NEXT BATCH OF CARDS
     ========================== */
     function loadNextBatch() {
       if (loadingMore) return;
@@ -225,7 +287,7 @@ x<!DOCTYPE html>
     }
 
     /* ==========================
-       3️⃣  CREATE A SINGLE CARD
+       3️⃣ CREATE A SINGLE CARD
     ========================== */
     function createCard(item) {
       const card = document.createElement('div');
@@ -249,11 +311,11 @@ x<!DOCTYPE html>
         <div class="meta">👤 ${item.username ? item.username : 'Anonymous'} • 🆔 ${item.id ? item.id : 'N/A'}</div>
       `;
 
-      // open‑PDF button
+      // open‑PDF button (launches the modal)
       const btn = document.createElement('button');
       btn.className = 'open-btn';
       btn.textContent = 'Open PDF';
-      btn.onclick = () => openPDFWithRewardedAd(item.title, item.archive_url);
+      btn.onclick = () => showChoiceModal(item.title, item.archive_url);
 
       // assemble card
       card.append(preview, info, btn);
@@ -261,7 +323,7 @@ x<!DOCTYPE html>
     }
 
     /* ==========================
-       4️⃣  INFINITE‑SCROLL HANDLER
+       4️⃣ INFINITE‑SCROLL HANDLER
     ========================== */
     function handleScroll() {
       const { scrollTop, scrollHeight, clientHeight } = document.documentElement;
@@ -271,55 +333,103 @@ x<!DOCTYPE html>
     }
 
     /* ==========================
-       5️⃣  OPEN PDF + TRIGGER REWARDED AD
+       5️⃣ MODAL LOGIC (watch ad / wait)
     ========================== */
-    function openPDFWithRewardedAd(title, url) {
-      if (!url) return;
-
-      // archive.org → /embed/
+    function showChoiceModal(title, url) {
+      if (!url) {
+        alert('PDF URL not available.');
+        return;
+      }
+      // Convert Archive “details” link to an embed link, otherwise keep the original URL.
       const embedUrl = url.includes('archive.org')
         ? url.replace('/details/', '/embed/')
         : url;
 
-      // show viewer & load PDF
-      PDF_TITLE.textContent = title || 'PDF Viewer';
-      PDF_FRAME.src = embedUrl;
+      pendingPDF = { title: title || 'PDF Viewer', embedUrl };
+
+      // Reset modal UI
+      COUNTDOWN_TXT.style.display = 'none';
+      if (countdownInterval) {
+        clearInterval(countdownInterval);
+        countdownInterval = null;
+      }
+      WATCH_AD_BTN.disabled = false;
+      WAIT_BTN.disabled = false;
+      CHOICE_MODAL.classList.add('active');
+    }
+
+    WATCH_AD_BTN.addEventListener('click', () => {
+      WATCH_AD_BTN.disabled = true;
+      WAIT_BTN.disabled = true;
+      requestNativeRewardedAd();
+    });
+
+    WAIT_BTN.addEventListener('click', () => {
+      WATCH_AD_BTN.disabled = true;
+      WAIT_BTN.disabled = true;
+      startCountdown();
+    });
+
+    function startCountdown() {
+      let remaining = 45;
+      COUNTDOWN_TXT.style.display = 'block';
+      COUNTDOWN_TXT.textContent = `${remaining} seconds remaining…`;
+
+      countdownInterval = setInterval(() => {
+        remaining--;
+        if (remaining > 0) {
+          COUNTDOWN_TXT.textContent = `${remaining} seconds remaining…`;
+        } else {
+          clearInterval(countdownInterval);
+          countdownInterval = null;
+          openPendingPDF();
+        }
+      }, 1000);
+    }
+
+    function openPendingPDF() {
+      if (!pendingPDF) return;
+
+      // Hide modal
+      CHOICE_MODAL.classList.remove('active');
+
+      // Open the fullscreen viewer
+      PDF_TITLE.textContent = pendingPDF.title;
+      PDF_FRAME.src = pendingPDF.embedUrl;
       VIEWER.classList.add('active');
 
-      // ask Android to display a rewarded ad
-      requestNativeRewardedAd();
-      // no HTML fallback – if the bridge does not exist the PDF simply stays visible
+      // Clean up
+      pendingPDF = null;
     }
 
     /* ==========================
-       6️⃣  REQUEST REWARDED AD FROM Android
+       6️⃣ REWARDED‑AD BRIDGE
     ========================== */
     function requestNativeRewardedAd() {
       if (window.Android && typeof window.Android.requestRewardedAd === 'function') {
-        // Android side must implement requestRewardedAd(tag) and call back onAdCompleted()/onAdNotAvailable()
-        window.Android.requestRewardedAd("pdf_open");
+        // Android must implement requestRewardedAd(tag) and later call onAdCompleted() / onAdNotAvailable()
+        window.Android.requestRewardedAd('pdf_open');
       } else {
-        console.warn("Native rewarded‑ad bridge not available – PDF will be shown without an ad.");
+        console.warn('Native rewarded‑ad bridge not available – opening PDF directly.');
+        // Fallback: just open the PDF
+        openPendingPDF();
       }
     }
 
-    /* ==========================
-       7️⃣  CALLBACKS INVOKED BY ANDROID
-    ========================== */
-    // Called by Android when the rewarded ad finishes successfully
+    // Called by Android when the ad completes successfully
     function onAdCompleted(tag) {
-      console.log("✅ Rewarded ad completed (tag:", tag, ")");
-      // No UI to hide – the PDF is already fullscreen
+      console.log('✅ Rewarded ad completed (tag:', tag, ')');
+      openPendingPDF();
     }
 
     // Called by Android when a rewarded ad cannot be shown
     function onAdNotAvailable() {
-      console.log("⚠️ Rewarded ad not available");
-      // The user still sees the PDF; nothing else to do
+      console.log('⚠️ Rewarded ad not available – opening PDF directly.');
+      openPendingPDF();
     }
 
     /* ==========================
-       8️⃣  CLOSE VIEWER
+       7️⃣ CLOSE VIEWER
     ========================== */
     function closeViewer() {
       VIEWER.classList.remove('active');
@@ -330,10 +440,9 @@ x<!DOCTYPE html>
     document.addEventListener('keydown', e => { if (e.key === 'Escape') closeViewer(); });
 
     /* ==========================
-       9️⃣  BOOTSTRAP
+       8️⃣ BOOTSTRAP
     ========================== */
     fetchData();
   </script>
 </body>
 </html>
-
