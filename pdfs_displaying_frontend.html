@@ -176,6 +176,32 @@
       font-size:1em;
     }
 
+    /* ----- simulated ad overlay ----- */
+    .ad-overlay{
+      position:fixed;
+      top:0; left:0;
+      width:100vw; height:100vh;
+      background:rgba(0,0,0,0.9);
+      display:none;
+      flex-direction:column;
+      justify-content:center;
+      align-items:center;
+      z-index:1000;
+    }
+    .ad-message{
+      font-size:1.5em;
+      color:#f8fafc;
+      margin-bottom:20px;
+    }
+    .ad-spinner{
+      border:6px solid rgba(255,255,255,.2);
+      border-top:6px solid #60a5fa;
+      border-radius:50%;
+      width:45px;
+      height:45px;
+      animation:spin 1s linear infinite;
+    }
+
     @media (max-width:768px){
       header{font-size:1.3em;padding:12px;}
       .open-btn{font-size:.9em;padding:8px;}
@@ -222,6 +248,12 @@
     </div>
   </div>
 
+  <!-- Simulated ad overlay (no external ad network) -->
+  <div id="adOverlay" class="ad-overlay">
+    <div class="ad-message">Playing ad… please wait</div>
+    <div class="ad-spinner"></div>
+  </div>
+
   <script>
     /* ==============================
        Global DOM references
@@ -240,15 +272,18 @@
     const COUNTDOWN_DIV = document.getElementById('countdownDiv');
     const COUNTDOWN_NUM = document.getElementById('countdownNumber');
 
-    const BACKEND_URL = 'https://pdfs_displaying_backend.video-api-ajaiahar.workers.dev';
-    const BATCH_SIZE = 30;
+    const AD_OVERLAY    = document.getElementById('adOverlay');
 
-    let allData = [];            // all items fetched from backend
-    let currentIndex = 0;        // used for pagination
-    let loadingMore = false;     // guard against double loads
+    const BACKEND_URL   = 'https://pdfs_displaying_backend.video-api-ajaiahar.workers.dev';
+    const BATCH_SIZE    = 30;
+    const AD_DURATION   = 15;               // seconds to simulate an ad
 
-    // Pending PDF info after user clicks a card
-    let pendingPdf = null;       // {title:string, url:string}
+    let allData      = [];   // all items fetched from backend
+    let currentIndex = 0;    // pagination cursor
+    let loadingMore  = false;// guard against parallel loads
+
+    // Pending PDF info after the user clicks a card
+    let pendingPdf   = null; // {title:string, url:string}
     let countdownInterval = null;
 
     /* ==============================
@@ -318,7 +353,7 @@
         <div class="meta">👤 ${item.username ? item.username : 'Anonymous'} • 🆔 ${item.id ? item.id : 'N/A'}</div>
       `;
 
-      // open‑PDF button (now opens the modal)
+      // open‑PDF button (now opens the modal with choice)
       const btn = document.createElement('button');
       btn.className = 'open-btn';
       btn.textContent = 'Open PDF';
@@ -343,7 +378,7 @@
        5️⃣ SHOW MODAL WITH CHOICE
     ============================== */
     function openPdfOptions(item) {
-      // Prepare pending PDF data
+      // Build embed URL (archive.org or direct link)
       const embedUrl = (item.archive_url && item.archive_url.includes('archive.org'))
         ? item.archive_url.replace('/details/', '/embed/')
         : item.archive_url;
@@ -353,7 +388,6 @@
         url: embedUrl
       };
 
-      // Populate and show modal
       MODAL_TITLE.textContent = pendingPdf.title;
       COUNTDOWN_DIV.style.display = 'none';
       WATCH_AD_BTN.style.display = 'inline-block';
@@ -365,9 +399,9 @@
        6️⃣ WATCH AD BUTTON HANDLER
     ============================== */
     WATCH_AD_BTN.addEventListener('click', () => {
-      // Hide modal (the ad may take a while)
+      // Hide choice modal and start the simulated ad overlay
       MODAL.style.display = 'none';
-      requestNativeRewardedAd();
+      showAdOverlay();
     });
 
     /* ==============================
@@ -398,43 +432,30 @@
     }
 
     /* ==============================
-       8️⃣ REQUEST REWARDED AD FROM ANDROID
+       8️⃣ SIMULATED AD OVERLAY
     ============================== */
-    function requestNativeRewardedAd() {
-      if (window.Android && typeof window.Android.requestRewardedAd === 'function') {
-        window.Android.requestRewardedAd("pdf_open");
-      } else {
-        console.warn("Native rewarded‑ad bridge not available – opening PDF directly.");
-        // Fallback: just open the PDF
+    function showAdOverlay() {
+      AD_OVERLAY.style.display = 'flex';
+      // After AD_DURATION seconds automatically open PDF
+      setTimeout(() => {
+        hideAdOverlay();
         openPdfNow();
-      }
+      }, AD_DURATION * 1000);
+    }
+
+    function hideAdOverlay() {
+      AD_OVERLAY.style.display = 'none';
     }
 
     /* ==============================
-       9️⃣ CALLBACKS FROM ANDROID
-    ============================== */
-    // Called by Android when the rewarded ad finishes successfully
-    function onAdCompleted(tag) {
-      console.log("✅ Rewarded ad completed (tag:", tag, ")");
-      openPdfNow();
-    }
-
-    // Called when a rewarded ad cannot be shown
-    function onAdNotAvailable() {
-      console.log("⚠️ Rewarded ad not available");
-      // Still open the PDF – user shouldn't be blocked
-      openPdfNow();
-    }
-
-    /* ==============================
-       10️⃣ OPEN PDF IN FULL‑SCREEN VIEWER
+       9️⃣ OPEN PDF IN FULL‑SCREEN VIEWER
     ============================== */
     function openPdfNow() {
       if (!pendingPdf) {
-        console.warn("No pending PDF to open.");
+        console.warn('No pending PDF to open.');
         return;
       }
-      // Clear any active countdown (just in case)
+      // Cleanup any countdown timer still running
       if (countdownInterval) {
         clearInterval(countdownInterval);
         countdownInterval = null;
@@ -444,12 +465,12 @@
       PDF_FRAME.src = pendingPdf.url;
       VIEWER.classList.add('active');
 
-      // Reset pendingPdf after opening
+      // Reset pendingPdf after triggering the viewer
       pendingPdf = null;
     }
 
     /* ==============================
-       11️⃣ CLOSE VIEWER
+       1️⃣0️⃣ CLOSE VIEWER
     ============================== */
     function closeViewer() {
       VIEWER.classList.remove('active');
@@ -460,7 +481,7 @@
     document.addEventListener('keydown', e => { if (e.key === 'Escape') closeViewer(); });
 
     /* ==============================
-       12️⃣ BOOTSTRAP
+       1️⃣1️⃣ BOOTSTRAP
     ============================== */
     fetchData();
   </script>
