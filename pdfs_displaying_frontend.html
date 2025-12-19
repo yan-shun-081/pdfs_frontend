@@ -6,7 +6,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap"
       rel="stylesheet">
-
 <style>
     *{box-sizing:border-box;margin:0;padding:0}
     body{
@@ -65,6 +64,9 @@
         transition:background .25s ease;font-size:.95em;
     }
     .open-btn:hover{background:#3b82f6}
+    .open-btn.rewarded{
+        background:#10b981;   /* emerald – works as “green” */
+    }
     footer{
         margin-top:30px;color:#94a3b8;font-size:.9em;text-align:center;
     }
@@ -103,7 +105,7 @@
     }
     .close-full:hover{background:#dc2626}
     .pdf-iframe{flex-grow:1;border:none;width:100%;height:100%}
-    /* ----- Modal (Ad/Wait) ----- */
+    /* ----- Modal (Ad / Wait) ----- */
     .modal{
         position:fixed;top:0;left:0;
         width:100vw;height:100vh;
@@ -113,11 +115,8 @@
     }
     .modal.active{display:flex}
     .modal-content{
-        background:#1e293b;
-        padding:20px;
-        border-radius:12px;
-        text-align:center;
-        max-width:90%;
+        background:#1e293b;padding:20px;
+        border-radius:12px;text-align:center;max-width:90%;
     }
     .modal-content h2{color:#f8fafc;margin-bottom:12px}
     .modal-btn{
@@ -152,7 +151,7 @@
 
 <footer>Powered by Archive &amp; Your Backend</footer>
 
-<!-- Fullscreen PDF Viewer -->
+<!-- Full‑screen PDF viewer -->
 <div id="pdfViewer" class="pdf-viewer">
     <div class="pdf-toolbar">
         <h2 id="pdfTitle">PDF Viewer</h2>
@@ -161,14 +160,15 @@
     <iframe id="pdfFrame" class="pdf-iframe" src=""></iframe>
 </div>
 
-<!-- Modal – Choose Watch Ad / Wait 45 s -->
+<!-- Modal – watch ad / unlock / wait -->
 <div id="adModal" class="modal">
     <div class="modal-content">
         <h2 id="modalTitle">Open PDF</h2>
 
         <div id="modalButtons" class="modal-buttons">
-            <button id="watchAdBtn" class="modal-btn">Watch Ad</button>
-            <button id="waitBtn" class="modal-btn">Wait 45 seconds</button>
+            <button id="watchAdBtn"      class="modal-btn">Watch Ad (Open now)</button>
+            <button id="watchAdUnlockBtn"class="modal-btn">Watch Ad (Unlock Direct Open)</button>
+            <button id="waitBtn"        class="modal-btn">Wait 45 seconds</button>
         </div>
 
         <div id="countdownContainer" style="display:none;">
@@ -179,111 +179,75 @@
 </div>
 
 <script>
-/* ---------- DOM references ---------- */
-const FEED               = document.getElementById('feed');
-const LOADER             = document.getElementById('loader');
-const VIEWER             = document.getElementById('pdfViewer');
-const PDF_FRAME          = document.getElementById('pdfFrame');
-const PDF_TITLE          = document.getElementById('pdfTitle');
-const CLOSE_VIEWER       = document.getElementById('closeViewer');
+/* -------------------------------------------------
+   Global references
+   ------------------------------------------------- */
+const FEED   = document.getElementById('feed');
+const LOADER = document.getElementById('loader');
 
-const AD_MODAL           = document.getElementById('adModal');
-const MODAL_TITLE        = document.getElementById('modalTitle');
-const MODAL_BUTTONS      = document.getElementById('modalButtons');
-const WATCH_AD_BTN       = document.getElementById('watchAdBtn');
-const WAIT_BTN           = document.getElementById('waitBtn');
-const COUNTDOWN_BOX     = document.getElementById('countdownContainer');
-const COUNTDOWN_NUM     = document.getElementById('countdownNumber');
+const VIEWER     = document.getElementById('pdfViewer');
+const PDF_FRAME  = document.getElementById('pdfFrame');
+const PDF_TITLE  = document.getElementById('pdfTitle');
+const CLOSE_VIEWER = document.getElementById('closeViewer');
+
+const AD_MODAL   = document.getElementById('adModal');
+const MODAL_TITLE = document.getElementById('modalTitle');
+const MODAL_BUTTONS = document.getElementById('modalButtons');
+const WATCH_AD_BTN = document.getElementById('watchAdBtn');
+const WATCH_AD_UNLOCK_BTN = document.getElementById('watchAdUnlockBtn');
+const WAIT_BTN = document.getElementById('waitBtn');
+const COUNTDOWN_BOX = document.getElementById('countdownContainer');
+const COUNTDOWN_NUM = document.getElementById('countdownNumber');
 const WATCH_AD_AFTER_BTN = document.getElementById('watchAdAfterTimerBtn');
 
-/* ---------- Backend & pagination ---------- */
+/* -------------------------------------------------
+   Backend / pagination
+   ------------------------------------------------- */
 const BACKEND_URL = 'https://pdfs_displaying_backend.video-api-ajaiahar.workers.dev';
 let allData = [], currentIndex = 0;
 const BATCH_SIZE = 30;
 let loadingMore = false;
 
-/* ---------- State for the selected PDF ---------- */
+/* -------------------------------------------------
+   State for the currently selected PDF
+   ------------------------------------------------- */
 let pendingPdfTitle = '';
 let pendingPdfUrl   = '';
+let pendingOpenBtn  = null;   // button that launched the modal
+let unlockReward   = false;   // true when we are unlocking the “direct‑open” button
 let countdownTimer = null;
 
-/* ---------- Helper: ask Android to preload an ad ---------- */
+/* -------------------------------------------------
+   Android bridge helpers
+   ------------------------------------------------- */
 function preloadAd() {
     if (window.Android && typeof window.Android.preloadRewardedAd === 'function') {
         window.Android.preloadRewardedAd();
         console.log('Android → preloadRewardedAd()');
     } else {
-        console.log('Android interface not available – preload simulated (no‑op).');
+        console.log('Android bridge missing – preload simulated.');
     }
 }
 
-/* ---------- Helper: ask Android to show a rewarded ad ---------- */
-function requestAd() {
-    // hide modal while the ad plays
-    hidePdfOptions();
+/* requestRewardedAd(isUnlock) – true = “unlock direct open”, false = “open now” */
+function requestAd(isUnlock) {
+    unlockReward = isUnlock;
+    hidePdfOptions();           // close the modal while the ad plays
 
     if (window.Android && typeof window.Android.requestRewardedAd === 'function') {
         console.log('Android → requestRewardedAd()');
-        window.Android.requestRewardedAd(pendingPdfTitle); // tag = title (any string)
+        window.Android.requestRewardedAd(pendingPdfTitle);
     } else {
-        console.log('Android interface not available – simulate ad (2 s).');
+        // simulation for desktop testing (2 s ad)
         setTimeout(() => {
-            // Simulated callback after ad finishes
             if (window.onAdCompleted) window.onAdCompleted(pendingPdfTitle);
         }, 2000);
     }
 }
 
-/* ---------- Open PDF after ad or timer ---------- */
-function openPdfFromPending() {
-    hidePdfOptions();                              // ensure modal cleared
-    openPdfViewer(pendingPdfTitle, pendingPdfUrl); // show full‑screen viewer
-    preloadAd();                                   // preload next ad for future use
-}
-
-/* ---------- UI: show modal with two options ---------- */
-function showPdfOptions(title, embedUrl) {
-    pendingPdfTitle = title;
-    pendingPdfUrl   = embedUrl;
-
-    MODAL_TITLE.textContent = `Open “${title}”`;
-    MODAL_BUTTONS.style.display = 'flex';
-    COUNTDOWN_BOX.style.display = 'none';
-    AD_MODAL.classList.add('active');
-}
-
-/* ---------- UI: hide/clean modal ---------- */
-function hidePdfOptions() {
-    if (countdownTimer) {
-        clearInterval(countdownTimer);
-        countdownTimer = null;
-    }
-    AD_MODAL.classList.remove('active');
-    // Reset for next use
-    MODAL_BUTTONS.style.display = 'flex';
-    COUNTDOWN_BOX.style.display = 'none';
-}
-
-/* ---------- Countdown handling ---------- */
-function startCountdown() {
-    MODAL_BUTTONS.style.display = 'none';
-    COUNTDOWN_BOX.style.display = 'block';
-    let secs = 45;
-    COUNTDOWN_NUM.textContent = secs;
-
-    countdownTimer = setInterval(() => {
-        secs--;
-        if (secs <= 0) {
-            clearInterval(countdownTimer);
-            countdownTimer = null;
-            openPdfFromPending();               // timer finished → open PDF
-        } else {
-            COUNTDOWN_NUM.textContent = secs;
-        }
-    }, 1000);
-}
-
-/* ---------- PDF Viewer (full‑screen) ---------- */
+/* -------------------------------------------------
+   PDF viewer helpers
+   ------------------------------------------------- */
 function openPdfViewer(title, embedUrl) {
     PDF_TITLE.textContent = title || 'PDF Viewer';
     PDF_FRAME.src = embedUrl;
@@ -296,48 +260,133 @@ function closeViewer() {
 CLOSE_VIEWER.onclick = closeViewer;
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeViewer(); });
 
-/* ---------- Event listeners for modal buttons ---------- */
-WATCH_AD_BTN.onclick   = requestAd;
-WAIT_BTN.onclick       = startCountdown;
-WATCH_AD_AFTER_BTN.onclick = () => {
+/* -------------------------------------------------
+   Modal handling
+   ------------------------------------------------- */
+function showPdfOptions(title, embedUrl) {
+    pendingPdfTitle = title;
+    pendingPdfUrl   = embedUrl;
+    MODAL_TITLE.textContent = `Open “${title}”`;
+    MODAL_BUTTONS.style.display = 'flex';
+    COUNTDOWN_BOX.style.display = 'none';
+    AD_MODAL.classList.add('active');
+}
+function hidePdfOptions() {
     if (countdownTimer) {
         clearInterval(countdownTimer);
         countdownTimer = null;
     }
-    requestAd();
-};
+    AD_MODAL.classList.remove('active');
+    MODAL_BUTTONS.style.display = 'flex';
+    COUNTDOWN_BOX.style.display = 'none';
+}
+function startCountdown() {
+    MODAL_BUTTONS.style.display = 'none';
+    COUNTDOWN_BOX.style.display = 'block';
+    let secs = 45;
+    COUNTDOWN_NUM.textContent = secs;
+    countdownTimer = setInterval(() => {
+        secs--;
+        if (secs <= 0) {
+            clearInterval(countdownTimer);
+            countdownTimer = null;
+            openPdfFromPending();      // timer finished → open PDF
+        } else {
+            COUNTDOWN_NUM.textContent = secs;
+        }
+    }, 1000);
+}
 
-/* ---------- Rewarded‑ad callbacks from Android ---------- */
+/* -------------------------------------------------
+   Open‑button logic (per card)
+   ------------------------------------------------- */
+function onOpenBtnClick(event) {
+    const btn   = event.currentTarget;
+    const title = btn.dataset.title;
+    const url   = btn.dataset.url;
+
+    if (!url) { alert('No PDF link available for this item.'); return; }
+
+    if (btn.classList.contains('rewarded')) {
+        // Direct‑open – no modal, no ad
+        openPdfViewer(title, url);
+        preloadAd();                 // keep the ad pipeline warm
+        return;
+    }
+
+    // Normal flow – we need to show the modal first
+    pendingOpenBtn = btn;
+    showPdfOptions(title, url);
+}
+
+/* -------------------------------------------------
+   Unlock button after rewarded‑ad
+   ------------------------------------------------- */
+function unlockPdfButton(btn) {
+    if (!btn) return;
+    btn.classList.add('rewarded');
+    btn.textContent = 'Open PDF -->';
+}
+
+/* -------------------------------------------------
+   After a rewarded‑ad finishes
+   ------------------------------------------------- */
 window.onAdCompleted = function(tag) {
     console.log('Rewarded ad completed, tag:', tag);
-    openPdfFromPending();
+    if (unlockReward) {
+        // The ad was for *unlocking* the direct‑open button
+        unlockPdfButton(pendingOpenBtn);
+        unlockReward = false;
+        preloadAd();                 // always preload the next ad
+    } else {
+        // The ad was for “open now” – open the PDF immediately
+        openPdfFromPending();
+    }
 };
 
+/* Called when the ad‑flow wants the PDF opened (after timer or “open now”) */
+function openPdfFromPending() {
+    hidePdfOptions();
+    openPdfViewer(pendingPdfTitle, pendingPdfUrl);
+    preloadAd();                     // keep ad queue full
+}
+
+/* -------------------------------------------------
+   Fallback callbacks for failures (optional)
+   ------------------------------------------------- */
 window.onAdFailedToPreload = function() {
-    console.warn('Ad failed to preload');
+    console.warn('Rewarded ad failed to preload.');
 };
-
 window.onAdNotAvailable = function() {
-    console.warn('Ad not available – opening PDF directly');
+    console.warn('Rewarded ad not available – opening PDF directly.');
     openPdfFromPending();
 };
 
-/* ---------- Fetch PDFs from the backend ---------- */
+/* -------------------------------------------------
+   Modal button listeners
+   ------------------------------------------------- */
+WATCH_AD_BTN.onclick       = () => requestAd(false);   // open now after ad
+WATCH_AD_UNLOCK_BTN.onclick = () => requestAd(true);    // unlock direct‑open
+WAIT_BTN.onclick          = startCountdown;
+WATCH_AD_AFTER_BTN.onclick = () => requestAd(false);   // ad after waiting
+
+/* -------------------------------------------------
+   Backend fetching & UI building
+   ------------------------------------------------- */
 async function fetchData() {
     try {
-        const response = await fetch(BACKEND_URL);
-        const data = await response.json();
+        const resp = await fetch(BACKEND_URL);
+        const data = await resp.json();
         LOADER.style.display = 'none';
 
         if (!data || data.length === 0) {
             FEED.innerHTML = "<p style='text-align:center;color:#94a3b8'>No PDFs found 😢</p>";
             return;
         }
-
         allData = data.sort((a, b) => Number(b.id) - Number(a.id));
         loadNextBatch();
         window.addEventListener('scroll', handleScroll);
-        preloadAd(); // first preload right after data is ready
+        preloadAd();                      // first ad preload as soon as UI is ready
     } catch (e) {
         LOADER.style.display = 'none';
         FEED.innerHTML = "<p style='text-align:center;color:#f87171'>Error loading data 😞</p>";
@@ -362,23 +411,27 @@ function handleScroll() {
     const { scrollTop, scrollHeight, clientHeight } = document.documentElement;
     if (scrollTop + clientHeight >= scrollHeight - 10) loadNextBatch();
 }
+
+/* -------------------------------------------------
+   Build each card (preview + info + button)
+   ------------------------------------------------- */
 function createCard(item) {
     const card = document.createElement('div');
     card.className = 'card';
 
-    // ----- preview (embed if archive.org) -----
     const preview = document.createElement('div');
     preview.className = 'preview';
+
     const embedUrl = item.archive_url && item.archive_url.includes('archive.org')
         ? item.archive_url.replace('/details/', '/embed/')
-        : null;
+        : '';
+
     if (embedUrl) {
         preview.innerHTML = `<iframe src="${embedUrl}" allowfullscreen></iframe>`;
     } else {
         preview.textContent = 'No Preview Available';
     }
 
-    // ----- info -----
     const info = document.createElement('div');
     info.className = 'info';
     info.innerHTML = `
@@ -386,23 +439,21 @@ function createCard(item) {
         <div class="meta">👤 ${item.username || 'Anonymous'} • 🆔 ${item.id || 'N/A'}</div>
     `;
 
-    // ----- Open button (triggers the ad‑/wait flow) -----
     const openBtn = document.createElement('button');
     openBtn.className = 'open-btn';
     openBtn.textContent = 'Open PDF';
-    openBtn.onclick = () => {
-        if (embedUrl) {
-            showPdfOptions(item.title, embedUrl);
-        } else {
-            alert('No PDF link available for this item.');
-        }
-    };
+    /* store needed data in data‑attributes */
+    openBtn.dataset.title = item.title || 'Untitled PDF';
+    openBtn.dataset.url   = embedUrl;
+    openBtn.addEventListener('click', onOpenBtnClick);
 
     card.append(preview, info, openBtn);
     FEED.appendChild(card);
 }
 
-/* ---------- Start everything ---------- */
+/* -------------------------------------------------
+   Kick‑off
+   ------------------------------------------------- */
 fetchData();
 </script>
 </body>
