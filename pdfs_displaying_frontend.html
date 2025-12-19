@@ -1,235 +1,289 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta charset="UTF-8">
 <title>📚 PDF Stream</title>
-
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap"
+      rel="stylesheet">
 
 <style>
-* { box-sizing:border-box; margin:0; padding:0; }
-
-body {
-  font-family:'Poppins',sans-serif;
-  background:linear-gradient(135deg,#0f172a,#1e293b);
-  color:#fff;
-  min-height:100vh;
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  padding-bottom:40px;
-}
-
-/* ---------- Header ---------- */
-header {
-  width:100%; padding:16px; text-align:center;
-  background:rgba(255,255,255,0.08);
-  backdrop-filter:blur(12px);
-  box-shadow:0 4px 20px rgba(0,0,0,.3);
-  font-size:1.5em; font-weight:600; color:#60a5fa;
-  letter-spacing:1px;
-}
-
-/* ---------- Feed & Cards ---------- */
-#feed {
-  display:grid;
-  grid-template-columns:repeat(auto-fit,minmax(240px,1fr));
-  gap:16px;
-  width:92%; max-width:1300px;
-  margin-top:24px;
-}
-.card {
-  background:rgba(255,255,255,0.08);
-  border-radius:16px; padding:14px;
-  display:flex; flex-direction:column;
-  transition:transform .25s ease,box-shadow .25s ease;
-}
-.card:hover {
-  transform:translateY(-4px);
-  box-shadow:0 8px 20px rgba(0,0,0,.4);
-}
-.preview {
-  width:100%; aspect-ratio:16/9;
-  border-radius:12px; overflow:hidden;
-  background:#1e293b; display:flex;
-  align-items:center; justify-content:center;
-  color:#94a3b8; font-size:.9em;
-}
-.preview iframe { width:100%; height:100%; border:none; }
-.info { margin-top:10px; }
-.title {
-  font-size:1em; font-weight:600; color:#f8fafc;
-  margin-bottom:4px; line-height:1.4;
-}
-.meta { font-size:.85em; color:#94a3b8; }
-.open-btn {
-  margin-top:10px; background:#60a5fa; color:#fff;
-  border:none; border-radius:8px; padding:10px;
-  font-weight:500; cursor:pointer;
-  transition:background .25s ease; font-size:.95em;
-}
-.open-btn:hover { background:#3b82f6; }
-
-/* ---------- Footer ---------- */
-footer {
-  margin-top:30px; color:#94a3b8;
-  font-size:.9em; text-align:center;
-}
-
-/* ---------- Loader ---------- */
-.loader {
-  margin-top:60px;
-  border:6px solid rgba(255,255,255,.2);
-  border-top:6px solid #60a5fa;
-  border-radius:50%; width:45px; height:45px;
-  animation:spin 1s linear infinite;
-}
-@keyframes spin { to { transform:rotate(360deg); } }
-
-/* ---------- Fullscreen PDF Viewer ---------- */
-.pdf-viewer {
-  position:fixed; top:0; left:0; width:100vw; height:100vh;
-  background:#0f172a; z-index:999; display:none;
-  flex-direction:column;
-}
-.pdf-viewer.active { display:flex; }
-.pdf-toolbar {
-  display:flex; justify-content:space-between; align-items:center;
-  padding:10px 14px;
-  background:rgba(15,23,42,.9);
-  border-bottom:1px solid rgba(255,255,255,.1);
-}
-.pdf-toolbar h2 { font-size:1em; color:#93c5fd; font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:80%; }
-.close-full {
-  background:#ef4444; border:none; color:#fff; font-size:1.2em;
-  width:36px; height:36px; border-radius:50%; cursor:pointer;
-  transition:background .25s ease;
-}
-.close-full:hover { background:#dc2626; }
-.pdf-iframe { flex-grow:1; border:none; width:100%; height:100%; }
-
-/* ---------- Modal (Ad Options) ---------- */
-.modal {
-  position:fixed; top:0; left:0; width:100vw; height:100vh;
-  background:rgba(0,0,0,.6);
-  display:none; align-items:center; justify-content:center;
-  z-index:1000;
-}
-.modal.active { display:flex; }
-.modal-content {
-  background:#1e293b;
-  padding:20px; border-radius:12px;
-  text-align:center; max-width:90%;
-}
-.modal-content h2 { color:#f8fafc; margin-bottom:12px; }
-.modal-buttons { margin-top:15px; }
-.modal-btn {
-  background:#60a5fa; border:none; color:#fff;
-  padding:10px 20px; margin:5px;
-  border-radius:8px; font-size:.95rem; cursor:pointer;
-  transition:background .2s;
-}
-.modal-btn:hover { background:#3b82f6; }
-.countdown p { font-size:1.2rem; margin-bottom:10px; color:#f8fafc; }
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{
+        font-family:'Poppins',sans-serif;
+        background:linear-gradient(135deg,#0f172a,#1e293b);
+        color:#fff;
+        min-height:100vh;
+        display:flex;
+        flex-direction:column;
+        align-items:center;
+        padding-bottom:40px;
+    }
+    header{
+        width:100%;padding:16px;text-align:center;
+        background:rgba(255,255,255,.08);
+        backdrop-filter:blur(12px);
+        box-shadow:0 4px 20px rgba(0,0,0,.3);
+        font-size:1.5em;font-weight:600;color:#60a5fa;
+        letter-spacing:1px;
+    }
+    #feed{
+        display:grid;
+        grid-template-columns:repeat(auto-fit,minmax(240px,1fr));
+        gap:16px;
+        width:92%;max-width:1300px;
+        margin-top:24px;
+    }
+    .card{
+        background:rgba(255,255,255,.08);
+        border-radius:16px;padding:14px;
+        display:flex;flex-direction:column;
+        transition:transform .25s ease,box-shadow .25s ease;
+    }
+    .card:hover{
+        transform:translateY(-4px);
+        box-shadow:0 8px 20px rgba(0,0,0,.4);
+    }
+    .preview{
+        width:100%;aspect-ratio:16/9;
+        border-radius:12px;overflow:hidden;
+        background:#1e293b;display:flex;
+        align-items:center;justify-content:center;
+        color:#94a3b8;font-size:.9em;
+    }
+    .preview iframe{width:100%;height:100%;border:none}
+    .info{margin-top:10px}
+    .title{
+        font-size:1em;font-weight:600;color:#f8fafc;
+        margin-bottom:4px;line-height:1.4;word-break:break-word;
+    }
+    .meta{font-size:.85em;color:#94a3b8;word-break:break-word}
+    .open-btn{
+        margin-top:10px;background:#60a5fa;color:#fff;
+        border:none;border-radius:8px;padding:10px;
+        font-weight:500;cursor:pointer;
+        transition:background .25s ease;font-size:.95em;
+    }
+    .open-btn:hover{background:#3b82f6}
+    footer{
+        margin-top:30px;color:#94a3b8;font-size:.9em;text-align:center;
+    }
+    .loader{
+        margin-top:60px;
+        border:6px solid rgba(255,255,255,.2);
+        border-top:6px solid #60a5fa;
+        border-radius:50%;width:45px;height:45px;
+        animation:spin 1s linear infinite;
+    }
+    @keyframes spin{to{transform:rotate(360deg)}}
+    /* ----- PDF Viewer ----- */
+    .pdf-viewer{
+        position:fixed;top:0;left:0;
+        width:100vw;height:100vh;
+        background:#0f172a;z-index:999;
+        display:none;flex-direction:column;
+    }
+    .pdf-viewer.active{display:flex}
+    .pdf-toolbar{
+        display:flex;justify-content:space-between;align-items:center;
+        padding:10px 14px;
+        background:rgba(15,23,42,.9);
+        border-bottom:1px solid rgba(255,255,255,.1);
+    }
+    .pdf-toolbar h2{
+        font-size:1em;color:#93c5fd;font-weight:500;
+        overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+        max-width:80%;
+    }
+    .close-full{
+        background:#ef4444;border:none;color:#fff;
+        font-size:1.2em;width:36px;height:36px;
+        border-radius:50%;cursor:pointer;
+        transition:background .25s ease;
+    }
+    .close-full:hover{background:#dc2626}
+    .pdf-iframe{flex-grow:1;border:none;width:100%;height:100%}
+    /* ----- Modal (Ad/Wait) ----- */
+    .modal{
+        position:fixed;top:0;left:0;
+        width:100vw;height:100vh;
+        background:rgba(0,0,0,.6);
+        display:none;align-items:center;justify-content:center;
+        z-index:1000;
+    }
+    .modal.active{display:flex}
+    .modal-content{
+        background:#1e293b;
+        padding:20px;
+        border-radius:12px;
+        text-align:center;
+        max-width:90%;
+    }
+    .modal-content h2{color:#f8fafc;margin-bottom:12px}
+    .modal-btn{
+        background:#60a5fa;color:#fff;border:none;
+        border-radius:8px;padding:10px 20px;
+        margin:6px;cursor:pointer;
+        font-size:.95rem;transition:background .2s;
+    }
+    .modal-btn:hover{background:#3b82f6}
+    .countdown p{font-size:1.2rem;color:#f8fafc;margin-bottom:10px}
+    @media (max-width:768px){
+        header{font-size:1.3em;padding:12px}
+        .open-btn{font-size:.9em;padding:8px}
+        .meta{font-size:.8em}
+    }
+    @media (max-width:480px){
+        #feed{width:96%;gap:12px}
+        .card{padding:10px}
+        .preview{aspect-ratio:4/3}
+        .title{font-size:.95em}
+        .pdf-toolbar h2{font-size:.9em}
+        .close-full{width:32px;height:32px;font-size:1em}
+    }
 </style>
 </head>
 
 <body>
 <header>📚 PDF Stream</header>
+
 <div id="feed"></div>
 <div id="loader" class="loader"></div>
-<footer>Powered by Archive & Your Backend</footer>
+
+<footer>Powered by Archive &amp; Your Backend</footer>
 
 <!-- Fullscreen PDF Viewer -->
 <div id="pdfViewer" class="pdf-viewer">
-  <div class="pdf-toolbar">
-    <h2 id="pdfTitle">PDF Viewer</h2>
-    <button class="close-full" id="closeViewer">&times;</button>
-  </div>
-  <iframe id="pdfFrame" class="pdf-iframe" src=""></iframe>
+    <div class="pdf-toolbar">
+        <h2 id="pdfTitle">PDF Viewer</h2>
+        <button class="close-full" id="closeViewer">&times;</button>
+    </div>
+    <iframe id="pdfFrame" class="pdf-iframe" src=""></iframe>
 </div>
 
-<!-- Modal – Choose “Watch Ad” or “Wait 45 s” -->
-<div id="pdfOptionModal" class="modal">
-  <div class="modal-content">
-    <h2 id="modalTitle">Open PDF</h2>
+<!-- Modal – Choose Watch Ad / Wait 45 s -->
+<div id="adModal" class="modal">
+    <div class="modal-content">
+        <h2 id="modalTitle">Open PDF</h2>
 
-    <!-- First step – two options -->
-    <div id="modalButtons" class="modal-buttons">
-      <button id="watchAdBtn" class="modal-btn">Watch Ad</button>
-      <button id="waitBtn" class="modal-btn">Wait 45 seconds</button>
-    </div>
+        <div id="modalButtons" class="modal-buttons">
+            <button id="watchAdBtn" class="modal-btn">Watch Ad</button>
+            <button id="waitBtn" class="modal-btn">Wait 45 seconds</button>
+        </div>
 
-    <!-- Countdown UI (shown after “Wait” is chosen) -->
-    <div id="countdownContainer" style="display:none;">
-      <p>Waiting… <span id="countdownNumber">45</span> seconds</p>
-      <button id="watchAdAfterTimerBtn" class="modal-btn">Watch Ad</button>
+        <div id="countdownContainer" style="display:none;">
+            <p>Waiting… <span id="countdownNumber">45</span> seconds</p>
+            <button id="watchAdAfterTimerBtn" class="modal-btn">Watch Ad</button>
+        </div>
     </div>
-  </div>
 </div>
 
 <script>
-/* ---------- Global Elements ---------- */
-const FEED            = document.getElementById('feed');
-const LOADER          = document.getElementById('loader');
-const VIEWER          = document.getElementById('pdfViewer');
-const PDF_FRAME       = document.getElementById('pdfFrame');
-const PDF_TITLE       = document.getElementById('pdfTitle');
-const CLOSE_VIEWER    = document.getElementById('closeViewer');
+/* ---------- DOM references ---------- */
+const FEED               = document.getElementById('feed');
+const LOADER             = document.getElementById('loader');
+const VIEWER             = document.getElementById('pdfViewer');
+const PDF_FRAME          = document.getElementById('pdfFrame');
+const PDF_TITLE          = document.getElementById('pdfTitle');
+const CLOSE_VIEWER       = document.getElementById('closeViewer');
 
-const MODAL           = document.getElementById('pdfOptionModal');
-const MODAL_TITLE     = document.getElementById('modalTitle');
-const MODAL_BTN_BOX   = document.getElementById('modalButtons');
-const WATCH_AD_BTN    = document.getElementById('watchAdBtn');
-const WAIT_BTN        = document.getElementById('waitBtn');
-const COUNTDOWN_BOX   = document.getElementById('countdownContainer');
-const COUNTDOWN_NUM   = document.getElementById('countdownNumber');
-const WATCH_AD_AFTER  = document.getElementById('watchAdAfterTimerBtn');
+const AD_MODAL           = document.getElementById('adModal');
+const MODAL_TITLE        = document.getElementById('modalTitle');
+const MODAL_BUTTONS      = document.getElementById('modalButtons');
+const WATCH_AD_BTN       = document.getElementById('watchAdBtn');
+const WAIT_BTN           = document.getElementById('waitBtn');
+const COUNTDOWN_BOX     = document.getElementById('countdownContainer');
+const COUNTDOWN_NUM     = document.getElementById('countdownNumber');
+const WATCH_AD_AFTER_BTN = document.getElementById('watchAdAfterTimerBtn');
 
-/* ---------- Backend ---------- */
+/* ---------- Backend & pagination ---------- */
 const BACKEND_URL = 'https://pdfs_displaying_backend.video-api-ajaiahar.workers.dev';
-
-let allData = [];
-let currentIndex = 0;
+let allData = [], currentIndex = 0;
 const BATCH_SIZE = 30;
 let loadingMore = false;
 
-/* ---------- Variables for the selected PDF ---------- */
-let pendingPdfUrl   = null;   // embed URL (archive.org/embed/…)
+/* ---------- State for the selected PDF ---------- */
 let pendingPdfTitle = '';
-let countdownTimer = null;   // reference to setInterval while counting down
+let pendingPdfUrl   = '';
+let countdownTimer = null;
 
-/* ---------- Android Ad Helpers ---------- */
+/* ---------- Helper: ask Android to preload an ad ---------- */
 function preloadAd() {
     if (window.Android && typeof window.Android.preloadRewardedAd === 'function') {
         window.Android.preloadRewardedAd();
-        console.log('Android: preloadRewardedAd() called');
+        console.log('Android → preloadRewardedAd()');
     } else {
-        console.log('Android interface not available – preload simulated');
+        console.log('Android interface not available – preload simulated (no‑op).');
     }
 }
-function playAd() {
-    // Hide the modal while the ad is playing.
+
+/* ---------- Helper: ask Android to show a rewarded ad ---------- */
+function requestAd() {
+    // hide modal while the ad plays
     hidePdfOptions();
-    if (window.Android && typeof window.Android.showRewardedAd === 'function') {
-        window.Android.showRewardedAd();
-        console.log('Android: showRewardedAd() called');
+
+    if (window.Android && typeof window.Android.requestRewardedAd === 'function') {
+        console.log('Android → requestRewardedAd()');
+        window.Android.requestRewardedAd(pendingPdfTitle); // tag = title (any string)
     } else {
-        console.log('Android interface not available – simulating ad');
-        // Simulated ad – completes after 2 seconds.
-        setTimeout(onRewardedAdCompleted, 2000);
+        console.log('Android interface not available – simulate ad (2 s).');
+        setTimeout(() => {
+            // Simulated callback after ad finishes
+            if (window.onAdCompleted) window.onAdCompleted(pendingPdfTitle);
+        }, 2000);
     }
 }
 
-/* ---------- Android must call this when the rewarded ad finishes ---------- */
-function onRewardedAdCompleted() {
-    // The flow after a successful ad: open the PDF and preload next ad.
-    openPdfViewer(pendingPdfTitle, pendingPdfUrl);
-    preloadAd();
+/* ---------- Open PDF after ad or timer ---------- */
+function openPdfFromPending() {
+    hidePdfOptions();                              // ensure modal cleared
+    openPdfViewer(pendingPdfTitle, pendingPdfUrl); // show full‑screen viewer
+    preloadAd();                                   // preload next ad for future use
 }
 
-/* ---------- UI – PDF Viewer ---------- */
+/* ---------- UI: show modal with two options ---------- */
+function showPdfOptions(title, embedUrl) {
+    pendingPdfTitle = title;
+    pendingPdfUrl   = embedUrl;
+
+    MODAL_TITLE.textContent = `Open “${title}”`;
+    MODAL_BUTTONS.style.display = 'flex';
+    COUNTDOWN_BOX.style.display = 'none';
+    AD_MODAL.classList.add('active');
+}
+
+/* ---------- UI: hide/clean modal ---------- */
+function hidePdfOptions() {
+    if (countdownTimer) {
+        clearInterval(countdownTimer);
+        countdownTimer = null;
+    }
+    AD_MODAL.classList.remove('active');
+    // Reset for next use
+    MODAL_BUTTONS.style.display = 'flex';
+    COUNTDOWN_BOX.style.display = 'none';
+}
+
+/* ---------- Countdown handling ---------- */
+function startCountdown() {
+    MODAL_BUTTONS.style.display = 'none';
+    COUNTDOWN_BOX.style.display = 'block';
+    let secs = 45;
+    COUNTDOWN_NUM.textContent = secs;
+
+    countdownTimer = setInterval(() => {
+        secs--;
+        if (secs <= 0) {
+            clearInterval(countdownTimer);
+            countdownTimer = null;
+            openPdfFromPending();               // timer finished → open PDF
+        } else {
+            COUNTDOWN_NUM.textContent = secs;
+        }
+    }, 1000);
+}
+
+/* ---------- PDF Viewer (full‑screen) ---------- */
 function openPdfViewer(title, embedUrl) {
     PDF_TITLE.textContent = title || 'PDF Viewer';
     PDF_FRAME.src = embedUrl;
@@ -239,85 +293,67 @@ function closeViewer() {
     VIEWER.classList.remove('active');
     PDF_FRAME.src = '';
 }
+CLOSE_VIEWER.onclick = closeViewer;
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeViewer(); });
 
-/* ---------- UI – Modal (Ad Options) ---------- */
-function showPdfOptions(title, embedUrl) {
-    pendingPdfTitle = title;
-    pendingPdfUrl   = embedUrl;
-
-    MODAL_TITLE.textContent = `Open “${title}”`;
-    MODAL_BTN_BOX.style.display = 'flex';
-    COUNTDOWN_BOX.style.display = 'none';
-    MODAL.classList.add('active');
-}
-function hidePdfOptions() {
-    MODAL.classList.remove('active');
+/* ---------- Event listeners for modal buttons ---------- */
+WATCH_AD_BTN.onclick   = requestAd;
+WAIT_BTN.onclick       = startCountdown;
+WATCH_AD_AFTER_BTN.onclick = () => {
     if (countdownTimer) {
         clearInterval(countdownTimer);
         countdownTimer = null;
     }
-}
-function startCountdown() {
-    MODAL_BTN_BOX.style.display = 'none';
-    COUNTDOWN_BOX.style.display = 'block';
-    let seconds = 45;
-    COUNTDOWN_NUM.textContent = seconds;
-    countdownTimer = setInterval(() => {
-        seconds--;
-        if (seconds <= 0) {
-            clearInterval(countdownTimer);
-            countdownTimer = null;
-            // Countdown finished → open PDF automatically.
-            onRewardedAdCompleted();
-        } else {
-            COUNTDOWN_NUM.textContent = seconds;
-        }
-    }, 1000);
-}
+    requestAd();
+};
 
-/* ---------- Event Listeners ---------- */
-CLOSE_VIEWER.addEventListener('click', closeViewer);
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeViewer(); });
+/* ---------- Rewarded‑ad callbacks from Android ---------- */
+window.onAdCompleted = function(tag) {
+    console.log('Rewarded ad completed, tag:', tag);
+    openPdfFromPending();
+};
 
-WATCH_AD_BTN.addEventListener('click', () => {
-    playAd();
-});
-WAIT_BTN.addEventListener('click', () => {
-    startCountdown();
-});
-WATCH_AD_AFTER.addEventListener('click', () => {
-    playAd();
-});
+window.onAdFailedToPreload = function() {
+    console.warn('Ad failed to preload');
+};
 
-/* ---------- Data Fetch & Card Creation ---------- */
+window.onAdNotAvailable = function() {
+    console.warn('Ad not available – opening PDF directly');
+    openPdfFromPending();
+};
+
+/* ---------- Fetch PDFs from the backend ---------- */
 async function fetchData() {
     try {
-        const res = await fetch(BACKEND_URL);
-        const data = await res.json();
+        const response = await fetch(BACKEND_URL);
+        const data = await response.json();
         LOADER.style.display = 'none';
 
         if (!data || data.length === 0) {
             FEED.innerHTML = "<p style='text-align:center;color:#94a3b8'>No PDFs found 😢</p>";
             return;
         }
+
         allData = data.sort((a, b) => Number(b.id) - Number(a.id));
         loadNextBatch();
         window.addEventListener('scroll', handleScroll);
-        // Pre‑load the first rewarded ad as soon as the UI is ready.
-        preloadAd();
-    } catch (err) {
+        preloadAd(); // first preload right after data is ready
+    } catch (e) {
         LOADER.style.display = 'none';
         FEED.innerHTML = "<p style='text-align:center;color:#f87171'>Error loading data 😞</p>";
-        console.error(err);
+        console.error(e);
     }
 }
 function loadNextBatch() {
     if (loadingMore) return;
     loadingMore = true;
+
     const batch = allData.slice(currentIndex, currentIndex + BATCH_SIZE);
-    batch.forEach(createCard);
+    batch.forEach(item => createCard(item));
+
     currentIndex += BATCH_SIZE;
     loadingMore = false;
+
     if (currentIndex >= allData.length) {
         window.removeEventListener('scroll', handleScroll);
     }
@@ -330,17 +366,19 @@ function createCard(item) {
     const card = document.createElement('div');
     card.className = 'card';
 
-    // --- Preview ---
+    // ----- preview (embed if archive.org) -----
     const preview = document.createElement('div');
     preview.className = 'preview';
-    const embedUrl = item.archive_url ? item.archive_url.replace('/details/', '/embed/') : null;
+    const embedUrl = item.archive_url && item.archive_url.includes('archive.org')
+        ? item.archive_url.replace('/details/', '/embed/')
+        : null;
     if (embedUrl) {
         preview.innerHTML = `<iframe src="${embedUrl}" allowfullscreen></iframe>`;
     } else {
         preview.textContent = 'No Preview Available';
     }
 
-    // --- Info ---
+    // ----- info -----
     const info = document.createElement('div');
     info.className = 'info';
     info.innerHTML = `
@@ -348,7 +386,7 @@ function createCard(item) {
         <div class="meta">👤 ${item.username || 'Anonymous'} • 🆔 ${item.id || 'N/A'}</div>
     `;
 
-    // --- Open button (triggers ad/options modal) ---
+    // ----- Open button (triggers the ad‑/wait flow) -----
     const openBtn = document.createElement('button');
     openBtn.className = 'open-btn';
     openBtn.textContent = 'Open PDF';
@@ -364,7 +402,7 @@ function createCard(item) {
     FEED.appendChild(card);
 }
 
-/* ---------- Initialise ---------- */
+/* ---------- Start everything ---------- */
 fetchData();
 </script>
 </body>
