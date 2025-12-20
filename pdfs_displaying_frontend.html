@@ -1,8 +1,9 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>📚 PDF Stream</title>
 
   <!-- Google Font -->
@@ -10,9 +11,9 @@
         rel="stylesheet"/>
 
   <style>
-    /* -----------------------------------------------------------------
+    /* ------------------------------------------------------------------
        General layout & theme
-    ----------------------------------------------------------------- */
+    ------------------------------------------------------------------- */
     * { box-sizing:border-box; margin:0; padding:0; }
 
     body {
@@ -28,7 +29,7 @@
 
     header{
       width:100%; padding:16px; text-align:center;
-      background:rgba(255,255,255,.08);
+      background:rgba(255,255,255,0.08);
       backdrop-filter:blur(12px);
       box-shadow:0 4px 20px rgba(0,0,0,.3);
       font-size:1.5em; font-weight:600; color:#60a5fa;
@@ -44,7 +45,7 @@
     }
 
     .card{
-      background:rgba(255,255,255,.08);
+      background:rgba(255,255,255,0.08);
       border-radius:16px;
       padding:14px;
       display:flex;
@@ -96,9 +97,9 @@
     }
     @keyframes spin{ from{transform:rotate(0)} to{transform:rotate(360deg)} }
 
-    /* -----------------------------------------------------------------
+    /* ------------------------------------------------------------------
        Full‑screen PDF viewer
-    ----------------------------------------------------------------- */
+    ------------------------------------------------------------------- */
     .pdf-viewer{
       position:fixed; top:0; left:0;
       width:100vw; height:100vh;
@@ -129,9 +130,9 @@
       flex-grow:1; border:none; width:100%; height:100%;
     }
 
-    /* -----------------------------------------------------------------
+    /* ------------------------------------------------------------------
        Modal (watch‑ad popup)
-    ----------------------------------------------------------------- */
+    ------------------------------------------------------------------- */
     .modal{
       position:fixed; top:0; left:0;
       width:100vw; height:100vh;
@@ -157,9 +158,9 @@
     .btn-cancel{ background:#64748b; color:#fff; }
     .btn-cancel:hover{ background:#475569; }
 
-    /* -----------------------------------------------------------------
+    /* ------------------------------------------------------------------
        Responsiveness
-    ----------------------------------------------------------------- */
+    ------------------------------------------------------------------- */
     @media(max-width:768px){
       header{font-size:1.3em;padding:12px}
       .open-btn{font-size:.9em;padding:8px}
@@ -173,46 +174,39 @@
       .pdf-toolbar h2{font-size:.9em}
       .close-full{width:32px;height:32px;font-size:1em}
     }
-
-    /* -----------------------------------------------------------------
-       Debug panel (tiny button + overlay)
-    ----------------------------------------------------------------- */
-    #debugPanel{
-      position:fixed; top:0; left:0; right:0; height:200px;
-      background:rgba(0,0,0,.85); color:#0f0; font-family:monospace;
-      font-size:12px; line-height:1.3; overflow-y:auto; z-index:9999;
-      display:none; padding:8px 8px 30px 8px;
-    }
-    #debugCloseBtn{
-      position:absolute; top:4px; right:4px;
-      background:#222; color:#fff; border:none; padding:2px 6px;
-      font-size:10px; cursor:pointer;
-    }
-    #debugOpenBtn{
-      position:fixed; bottom:12px; right:12px;
-      background:#222; color:#0f0; border:none; border-radius:4px;
-      padding:6px 10px; font-size:12px; cursor:pointer;
-      z-index:9999;
-    }
   </style>
 </head>
 <body>
-
-  <!-- Debug panel -->
-  <div id="debugPanel">
-    <button id="debugCloseBtn">✕</button>
+  <!-- ------------------------------------------------------------
+       DEBUG PANEL – appears when you tap the tiny “🪵 Debug” button.
+       ------------------------------------------------------------ -->
+  <div id="debugPanel" style="
+        position:fixed; top:0; left:0; right:0; height:200px;
+        background:rgba(0,0,0,0.85); color:#0f0; font-family:monospace;
+        font-size:12px; line-height:1.3; overflow-y:auto; z-index:9999;
+        display:none; padding:8px 8px 30px 8px;">
+    <button id="debugCloseBtn" style="
+        position:absolute; top:4px; right:4px;
+        background:#222; color:#fff; border:none; padding:2px 6px;
+        font-size:10px; cursor:pointer;">✕</button>
     <div id="debugLog"></div>
   </div>
-  <button id="debugOpenBtn">🪵 Debug</button>
 
-  <!-- Header -->
+  <!-- tiny button that opens the panel -->
+  <button id="debugOpenBtn" style="
+        position:fixed; bottom:12px; right:12px;
+        background:#222; color:#0f0; border:none; border-radius:4px;
+        padding:6px 10px; font-size:12px; cursor:pointer;
+        z-index:9999;">🪵 Debug</button>
+
+  <!-- ------------------------------------------------------------------
+       THE ORIGINAL UI (header, feed, loader, footer, viewer, modal)
+       ------------------------------------------------------------------ -->
   <header>📚 PDF Stream</header>
 
-  <!-- Main feed & loader -->
   <div id="feed"></div>
   <div id="loader" class="loader"></div>
 
-  <!-- Footer -->
   <footer>Powered by Archive &amp; Your Backend</footer>
 
   <!-- Full‑screen PDF viewer -->
@@ -233,133 +227,140 @@
     </div>
   </div>
 
-  <!-- -------------------------------------------------------------
-       JavaScript – everything (debug console, bridge, callbacks,
-       app logic, network interceptors)
-       ------------------------------------------------------------- -->
+  <!-- ------------------------------------------------------------
+       DEBUGGER SCRIPT – wraps console, Android bridge, network and
+       then runs the original app logic.
+       ------------------------------------------------------------ -->
   <script>
     (function () {
-      /* ---------------------------------------------------------
-         0️⃣ Debug console that writes into the on‑page panel
-         --------------------------------------------------------- */
+      /* --------------------------------------------------------
+         0️⃣  Helper – write a line to the on‑page panel
+               and forward to the real console.
+         -------------------------------------------------------- */
       const LOG_CONTAINER = document.getElementById('debugLog');
+
       function dLog(...args) {
+        // forward to original console (so Logcat still sees it)
         console.__origLog.apply(console, args);
+        // write to the UI panel
         const line = document.createElement('div');
         line.textContent = args.map(a => {
           try { return typeof a === 'object' ? JSON.stringify(a) : String(a); }
-          catch { return String(a); }
+          catch (e) { return String(a); }
         }).join(' ');
         LOG_CONTAINER.appendChild(line);
         LOG_CONTAINER.scrollTop = LOG_CONTAINER.scrollHeight;
       }
-      console.__origLog   = console.log   || function () { };
-      console.__origWarn  = console.warn  || function () { };
-      console.__origError = console.error || function () { };
-      console.__origInfo  = console.info  || function () { };
+
+      /* --------------------------------------------------------
+         Preserve the original console methods.
+         -------------------------------------------------------- */
+      console.__origLog   = console.log   || function () {};
+      console.__origWarn  = console.warn  || function () {};
+      console.__origError = console.error || function () {};
+      console.__origInfo  = console.info  || function () {};
+
+      /* --------------------------------------------------------
+         Override console.* so every call appears in the panel.
+         -------------------------------------------------------- */
       console.log   = (...a) => dLog('[LOG]',   ...a);
       console.warn  = (...a) => dLog('[WARN]',  ...a);
       console.error = (...a) => dLog('[ERR]',   ...a);
       console.info  = (...a) => dLog('[INFO]',  ...a);
 
-      /* ---------------------------------------------------------
-         Debug panel show / hide
-         --------------------------------------------------------- */
+      /* --------------------------------------------------------
+         UI – open / close the debug panel.
+         -------------------------------------------------------- */
       const panel    = document.getElementById('debugPanel');
       const openBtn  = document.getElementById('debugOpenBtn');
       const closeBtn = document.getElementById('debugCloseBtn');
+
       openBtn.addEventListener('click', () => panel.style.display = 'block');
       closeBtn.addEventListener('click', () => panel.style.display = 'none');
 
-      /* ---------------------------------------------------------
-         1️⃣ Android bridge wrapper (adds logging)
-         --------------------------------------------------------- */
-      let android = null;
+      /* --------------------------------------------------------
+         1️⃣  Wrap the Android bridge (if it exists) and log every call.
+         -------------------------------------------------------- */
       if (window.Android) {
-        android = {
-          requestRewardedAd: window.Android.requestRewardedAd,
-          preloadRewardedAd: window.Android.preloadRewardedAd,
-          loadUrlInWebView: window.Android.loadUrlInWebView,
-          getAndroidId:    window.Android.getAndroidId
+        const orig = {
+          requestRewardedAd   : window.Android.requestRewardedAd,
+          preloadRewardedAd   : window.Android.preloadRewardedAd,
+          loadUrlInWebView    : window.Android.loadUrlInWebView,
+          getAndroidId        : window.Android.getAndroidId
         };
+
         const wrap = (name, fn) => (...args) => {
           console.log(`🔹 Android.${name} called with`, ...args);
           const ret = fn.apply(window.Android, args);
-          if (ret !== undefined) console.log(`🔹 Android.${name} returned →`, ret);
+          if (ret !== undefined) {
+            console.log(`🔹 Android.${name} returned →`, ret);
+          }
           return ret;
         };
-        window.Android.requestRewardedAd = wrap('requestRewardedAd', android.requestRewardedAd);
-        window.Android.preloadRewardedAd = wrap('preloadRewardedAd', android.preloadRewardedAd);
-        window.Android.loadUrlInWebView  = wrap('loadUrlInWebView',  android.loadUrlInWebView);
-        window.Android.getAndroidId      = wrap('getAndroidId',      android.getAndroidId);
+
+        window.Android.requestRewardedAd   = wrap('requestRewardedAd',   orig.requestRewardedAd);
+        window.Android.preloadRewardedAd   = wrap('preloadRewardedAd',   orig.preloadRewardedAd);
+        window.Android.loadUrlInWebView    = wrap('loadUrlInWebView',    orig.loadUrlInWebView);
+        window.Android.getAndroidId        = wrap('getAndroidId',        orig.getAndroidId);
       } else {
         console.warn('⚠️ No Android bridge detected – running in a browser');
       }
 
-      /* ---------------------------------------------------------
-         2️⃣ Callbacks that the native side will invoke
-         --------------------------------------------------------- */
-      // Preserve any previous definitions (just in case)
-      const _origOnAdPreloaded       = window.onAdPreloaded       || function () { };
-      const _origOnAdFailedToPreload = window.onAdFailedToPreload || function () { };
-      const _origOnAdNotAvailable    = window.onAdNotAvailable    || function () { };
-      const _origOnRewardEarned      = window.onRewardEarned      || function () { };
-      const _origOnAdCompleted       = window.onAdCompleted       || function () { };
+      /* --------------------------------------------------------
+         2️⃣  Intercept the callbacks that Android will call.
+         -------------------------------------------------------- */
+      // If the app (or another script) defined any of these before us,
+      // we preserve them and call them after our own handling.
+      const _origOnAdPreloaded       = window.onAdPreloaded       || function () {};
+      const _origOnAdFailedToPreload = window.onAdFailedToPreload || function () {};
+      const _origOnAdNotAvailable    = window.onAdNotAvailable    || function () {};
+      const _origOnAdCompleted       = window.onAdCompleted       || function () {};
 
       window.onAdPreloaded = function () {
-        console.log('✅ onAdPreloaded (JS)');
+        console.log('✅ onAdPreloaded');
         _origOnAdPreloaded();
       };
       window.onAdFailedToPreload = function () {
-        console.warn('⚠️ onAdFailedToPreload (JS)');
+        console.warn('⚠️ onAdFailedToPreload');
         _origOnAdFailedToPreload();
       };
+
+      /* --------------------------------------------------------
+         The two callbacks we really care about – we replace them
+         with our own logic (they still call any previously‑defined
+         callbacks via the variables above).
+         -------------------------------------------------------- */
       window.onAdNotAvailable = function () {
-        console.warn('⚠️ onAdNotAvailable (JS)');
-        // Fallback: open the PDF directly
+        console.warn('⚠️ rewarded ad not available – opening PDF directly');
         if (pendingPayload) {
           openFullscreenPDF(pendingPayload.title, pendingPayload.url);
           pendingPayload = null;
         }
-        adInProgress = false;
+        adInProgress = false; // unlock
         _origOnAdNotAvailable();
       };
-      window.onRewardEarned = function (tag) {
-        console.log('🏆 onRewardEarned (JS) tag =', tag);
-        // `tag` is the JSON we sent from JS → Android
+
+      window.onAdCompleted = function (tag) {
+        console.log('✅ onAdCompleted, tag =', tag);
         try {
           const payload = JSON.parse(tag);
-          // Start a download or any background work while the ad UI is still up
-          startPdfDownload(payload);
+          openFullscreenPDF(payload.title, payload.url);
         } catch (e) {
-          console.error('❌ onRewardEarned – JSON parse error', e);
-        }
-        _origOnRewardEarned(tag);
-      };
-      window.onAdCompleted = function (tag, earned) {
-        console.log('✅ onAdCompleted (JS) tag =', tag, 'earned =', earned);
-        try {
-          const payload = JSON.parse(tag);
-          if (earned) {
-            openFullscreenPDF(payload.title, payload.url);
-          } else {
-            alert('You need to watch the whole ad to unlock this PDF.');
-          }
-        } catch (e) {
-          console.error('❌ onAdCompleted – JSON parse error', e);
-          // Best‑effort fallback
+          console.error('❌ parse error in onAdCompleted →', e);
+          // Fallback to whatever we still have stored
           if (pendingPayload) {
             openFullscreenPDF(pendingPayload.title, pendingPayload.url);
           }
         }
         pendingPayload = null;
-        adInProgress = false;
-        _origOnAdCompleted(tag, earned);
+        adInProgress = false; // unlock
+        _origOnAdCompleted(tag);
       };
 
-      /* ---------------------------------------------------------
-         3️⃣ Network interceptors (debug only)
-         --------------------------------------------------------- */
+      /* --------------------------------------------------------
+         3️⃣  Intercept network – fetch() and XHR (Archive.org uses XHR)
+         -------------------------------------------------------- */
+      // ---- fetch -------------------------------------------------
       const origFetch = window.fetch;
       window.fetch = function (...args) {
         console.log('🔗 fetch →', ...args);
@@ -378,13 +379,15 @@
             throw err;
           });
       };
-      const origXHROpen = XMLHttpRequest.prototype.open;
+
+      // ---- XHR ---------------------------------------------------
+      const origOpen = XMLHttpRequest.prototype.open;
       XMLHttpRequest.prototype.open = function (method, url, async, user, pwd) {
         this.__debugInfo = { method, url };
         console.log('🔗 XHR open →', method, url);
-        return origXHROpen.apply(this, arguments);
+        return origOpen.apply(this, arguments);
       };
-      const origXHRSend = XMLHttpRequest.prototype.send;
+      const origSend = XMLHttpRequest.prototype.send;
       XMLHttpRequest.prototype.send = function (body) {
         const info = this.__debugInfo || {};
         console.log('🔗 XHR send →', info.method, info.url, 'body:', body);
@@ -399,88 +402,85 @@
         this.addEventListener('error', function () {
           console.error('🔗 XHR error →', info.url);
         });
-        return origXHRSend.apply(this, arguments);
+        return origSend.apply(this, arguments);
       };
 
-      /* ---------------------------------------------------------
-         4️⃣ Application logic (feed, modal, ad flow, PDF viewer)
-         --------------------------------------------------------- */
-      // ----- Global UI elements -------------------------------------------------
-      const FEED        = document.getElementById('feed');
-      const LOADER      = document.getElementById('loader');
-      const VIEWER      = document.getElementById('pdfViewer');
-      const PDF_FRAME   = document.getElementById('pdfFrame');
-      const PDF_TITLE   = document.getElementById('pdfTitle');
-      const CLOSE_VIEWER= document.getElementById('closeViewer');
-      const AD_MODAL    = document.getElementById('adModal');
-      const WATCH_BTN   = document.getElementById('watchAdBtn');
-      const CANCEL_BTN  = document.getElementById('cancelBtn');
+      /* --------------------------------------------------------
+         4️⃣  ORIGINAL APP LOGIC (now augmented with ad‑lock &
+              payload handling).
+         -------------------------------------------------------- */
 
-      const BACKEND_URL = 'https://pdfs_displaying_backend.video-api-ajaiahar.workers.dev';
+      // ------------------- Global elements / state -------------------
+      const FEED          = document.getElementById('feed');
+      const LOADER        = document.getElementById('loader');
+      const VIEWER        = document.getElementById('pdfViewer');
+      const PDF_FRAME     = document.getElementById('pdfFrame');
+      const PDF_TITLE     = document.getElementById('pdfTitle');
+      const CLOSE_VIEWER  = document.getElementById('closeViewer');
+
+      const AD_MODAL      = document.getElementById('adModal');
+      const WATCH_BTN     = document.getElementById('watchAdBtn');
+      const CANCEL_BTN    = document.getElementById('cancelBtn');
+
+      const BACKEND_URL   = 'https://pdfs_displaying_backend.video-api-ajaiahar.workers.dev';
 
       let allData = [], currentIndex = 0;
       const BATCH_SIZE = 30;
       let loadingMore = false;
 
-      // Payload of the PDF the user wants to see (null when no request)
-      let pendingPayload = null;
-      // Simple lock so we don't fire parallel rewarded‑ad requests
+      // Holds the data for the PDF that the user wants to view.
+      let pendingPayload = null;   // {title:string, url:string}
+      // Prevent multiple ad requests while one is already in flight.
       let adInProgress = false;
 
-      // ----- Helper – show PDF in full‑screen viewer -------------------------
+      // -----------------------------------------------------------------
+      // Helper – open PDF in the full‑screen viewer
+      // -----------------------------------------------------------------
       function openFullscreenPDF(title, url) {
         if (!url) {
-          console.warn('openFullscreenPDF – empty URL');
+          console.warn('openFullscreenPDF called with empty URL');
           return;
         }
+        // Convert Archive.org details URL → embed URL
         const embedUrl = url.includes('archive.org')
           ? url.replace('/details/', '/embed/')
           : url;
-        console.log('🔗 embedUrl set on iframe =', embedUrl);
+        console.log('🔗 embedUrl that will be set on iframe =', embedUrl);
         PDF_TITLE.textContent = title || 'PDF Viewer';
         PDF_FRAME.src = embedUrl;
         VIEWER.classList.add('active');
       }
 
-      // ----- Optional – start download while ad is still showing -------------
-      function startPdfDownload(payload) {
-        console.log('📥 startPdfDownload called with payload =', payload);
-        // Example: preload the embed URL so it is cached when the ad finishes
-        const embed = payload.url?.includes('archive.org')
-          ? payload.url.replace('/details/', '/embed/')
-          : payload.url;
-        if (embed) {
-          const link = document.createElement('link');
-          link.rel = 'preload';
-          link.as = 'document';
-          link.href = embed;
-          document.head.appendChild(link);
-          console.log('🔗 preloading embed URL:', embed);
-        }
-      }
-
-      // ----- Modal handling -------------------------------------------------
+      // -----------------------------------------------------------------
+      // Show modal and keep a copy of the payload
+      // -----------------------------------------------------------------
       function showAdModal(item) {
+        // Store the *raw* Archive.org details URL.
         pendingPayload = {
           title: item.title || 'Untitled PDF',
           url:   item.archive_url || ''
         };
-        console.log('🟠 showAdModal – pendingPayload =', pendingPayload);
+        console.log('🟠 showAdModal → pendingPayload =', pendingPayload);
         AD_MODAL.style.display = 'flex';
       }
 
+      // -----------------------------------------------------------------
+      // “Watch Ad” – send JSON payload to Android (with lock)
+      // -----------------------------------------------------------------
       WATCH_BTN.addEventListener('click', () => {
         AD_MODAL.style.display = 'none';
+
+        // If we already have an ad in progress, ignore the click.
         if (adInProgress) {
-          console.warn('⚠️ Ad already in progress – click ignored');
+          console.warn('⚠️ Ad already in progress – ignoring Watch Ad click');
           return;
         }
 
-        if (android && typeof android.requestRewardedAd === 'function') {
-          adInProgress = true;               // lock UI
+        if (window.Android && typeof Android.requestRewardedAd === 'function') {
+          adInProgress = true; // ← lock
           const tag = JSON.stringify(pendingPayload);
-          console.log('→ Android.requestRewardedAd(tag) =', tag);
-          android.requestRewardedAd(tag);
+          console.log('→ requestRewardedAd(tag) =', tag);
+          Android.requestRewardedAd(tag);
         } else {
           console.log('❎ No Android bridge – opening PDF directly');
           openFullscreenPDF(pendingPayload.title, pendingPayload.url);
@@ -488,22 +488,27 @@
         }
       });
 
+      // -----------------------------------------------------------------
+      // “Cancel” button – hide modal & discard payload
+      // -----------------------------------------------------------------
       CANCEL_BTN.addEventListener('click', () => {
-        console.log('✖️ User cancelled ad request');
+        console.log('✖️ User cancelled – dropping pendingPayload');
         AD_MODAL.style.display = 'none';
         pendingPayload = null;
-        adInProgress = false;                 // unlock
+        adInProgress = false; // unlock (in case a stray ad was pending)
       });
 
-      // ----- Data fetching + feed rendering ---------------------------------
+      // -----------------------------------------------------------------
+      // Data fetching & UI building (unchanged apart from logging)
+      // -----------------------------------------------------------------
       async function fetchData() {
         try {
-          console.log('📦 fetching data from', BACKEND_URL);
-          const res = await fetch(BACKEND_URL);
+          console.log('📦 fetching data from backend →', BACKEND_URL);
+          const res  = await fetch(BACKEND_URL);
           const data = await res.json();
           LOADER.style.display = 'none';
 
-          if (!Array.isArray(data) || data.length === 0) {
+          if (!data || data.length === 0) {
             FEED.innerHTML = "<p style='text-align:center;color:#94a3b8'>No PDFs found 😢</p>";
             console.warn('⚠️ Backend returned empty array');
             return;
@@ -524,7 +529,7 @@
         loadingMore = true;
 
         const nextBatch = allData.slice(currentIndex, currentIndex + BATCH_SIZE);
-        console.log('🔀 loadNextBatch – items', currentIndex, 'to', currentIndex + BATCH_SIZE);
+        console.log('🔀 loading next batch – items', currentIndex, 'to', currentIndex + BATCH_SIZE);
         nextBatch.forEach(item => createCard(item));
 
         currentIndex += BATCH_SIZE;
@@ -541,7 +546,9 @@
 
         const preview = document.createElement('div');
         preview.className = 'preview';
+
         if (item.archive_url && item.archive_url.includes('archive.org')) {
+          // Show the *embed* view in the preview (fast loading thumbnail)
           const embedUrl = item.archive_url.replace('/details/', '/embed/');
           preview.innerHTML = `<iframe src="${embedUrl}" allowfullscreen></iframe>`;
         } else {
@@ -571,21 +578,26 @@
         }
       }
 
-      // ----- Viewer close handling -----------------------------------------
+      // -----------------------------------------------------------------
+      // Viewer close handling
+      // -----------------------------------------------------------------
       CLOSE_VIEWER.onclick = closeViewer;
       document.addEventListener('keydown', e => {
         if (e.key === 'Escape') closeViewer();
       });
+
       function closeViewer() {
         VIEWER.classList.remove('active');
         PDF_FRAME.src = '';
       }
 
-      // ----- Init: preload ad (if possible) + fetch data --------------------
+      // -----------------------------------------------------------------
+      // Initialise – preload the rewarded ad (only when Android bridge exists)
+      // -----------------------------------------------------------------
       document.addEventListener('DOMContentLoaded', () => {
-        if (android && typeof android.preloadRewardedAd === 'function') {
+        if (window.Android && typeof Android.preloadRewardedAd === 'function') {
           console.log('📢 pre‑loading rewarded ad');
-          android.preloadRewardedAd();
+          Android.preloadRewardedAd();
         } else {
           console.log('🚫 Android bridge not present – running in a browser');
         }
