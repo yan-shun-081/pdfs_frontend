@@ -134,41 +134,31 @@
       width:100%; height:100%;
     }
 
-    /* ----- ad‑prompt modal ----- */
-    .modal{
-      display:none;
-      position:fixed;
-      inset:0;
-      background:rgba(0,0,0,0.6);
-      justify-content:center;
-      align-items:center;
+    /* ----- modal that asks the user to watch an ad ----- */
+    #adModal{
+      display:none; /* hidden by default */
+      position:fixed; top:0; left:0;
+      width:100vw; height:100vh;
+      background:rgba(0,0,0,0.7);
+      align-items:center; justify-content:center;
       z-index:1000;
     }
-    .modal.active{ display:flex; }
-
-    .modal-content{
-      background:#1e293b;
-      border-radius:12px;
+    #adModal .modal-content{
+      background:rgba(255,255,255,0.08);
       padding:24px;
-      max-width:90%;
-      width:340px;
+      border-radius:12px;
       text-align:center;
+      max-width:90%;
+      color:#fff;
     }
-    .modal-content h3{
-      color:#93c5fd;
+    #adModal .modal-content h3{
       margin-bottom:12px;
+      font-size:1.2em;
+      color:#60a5fa;
     }
-    .modal-content p{
-      color:#cbd5e1;
+    #adModal .modal-content p{
       margin-bottom:20px;
       font-size:.95em;
-    }
-    .modal-content .open-btn{ width:100%; }
-    .cancel-btn{
-      background:#64748b;
-    }
-    .cancel-btn:hover{
-      background:#475569;
     }
 
     @media (max-width:768px){
@@ -189,13 +179,11 @@
 
 <body>
   <header>📚 PDF Stream</header>
-
   <div id="feed"></div>
   <div id="loader" class="loader"></div>
-
   <footer>Powered by Archive & Your Backend</footer>
 
-  <!-- Full‑screen PDF viewer (no ad container) -->
+  <!-- Full‑screen PDF viewer -->
   <div id="pdfViewer" class="pdf-viewer">
     <div class="pdf-toolbar">
       <h2 id="pdfTitle">PDF Viewer</h2>
@@ -204,45 +192,46 @@
     <iframe id="pdfFrame" class="pdf-iframe" src=""></iframe>
   </div>
 
-  <!-- Ad‑prompt modal -->
-  <div id="adModal" class="modal">
+  <!-- Modal that appears when the user clicks “Open PDF” -->
+  <div id="adModal">
     <div class="modal-content">
-      <h3>Watch an ad to view the PDF</h3>
-      <p>Support us by watching a short rewarded video.</p>
-      <button id="watchAdBtn" class="open-btn">Watch Ad</button>
-      <button id="cancelAdBtn" class="open-btn cancel-btn">Cancel</button>
+      <h3>Watch an ad to view this PDF</h3>
+      <p id="modalText"></p>
+      <button class="open-btn" id="watchAdBtn">Watch Ad</button>
+      <button class="open-btn" id="cancelBtn" style="background:#ef4444;">Cancel</button>
     </div>
   </div>
 
   <script>
-    /* ==========================
+    /* ======================================================================
        Global DOM references
-    ========================== */
-    const FEED          = document.getElementById('feed');
-    const LOADER        = document.getElementById('loader');
-    const VIEWER        = document.getElementById('pdfViewer');
-    const PDF_FRAME     = document.getElementById('pdfFrame');
-    const PDF_TITLE     = document.getElementById('pdfTitle');
-    const CLOSE_VIEW    = document.getElementById('closeViewer');
+       ====================================================================== */
+    const FEED       = document.getElementById('feed');
+    const LOADER     = document.getElementById('loader');
+    const VIEWER     = document.getElementById('pdfViewer');
+    const PDF_FRAME  = document.getElementById('pdfFrame');
+    const PDF_TITLE  = document.getElementById('pdfTitle');
+    const CLOSE_VIEW = document.getElementById('closeViewer');
 
-    const AD_MODAL      = document.getElementById('adModal');
-    const WATCH_AD_BTN  = document.getElementById('watchAdBtn');
-    const CANCEL_AD_BTN = document.getElementById('cancelAdBtn');
+    const MODAL      = document.getElementById('adModal');
+    const MODAL_TEXT = document.getElementById('modalText');
+    const WATCH_BTN  = document.getElementById('watchAdBtn');
+    const CANCEL_BTN = document.getElementById('cancelBtn');
 
     const BACKEND_URL = 'https://pdfs_displaying_backend.video-api-ajaiahar.workers.dev';
 
-    let allData = [];
+    let allData      = [];
     let currentIndex = 0;
     const BATCH_SIZE = 30;
-    let loadingMore = false;
+    let loadingMore  = false;
 
-    // Variables that hold the PDF the user wants to open
-    let pendingTitle = null;
-    let pendingUrl   = null;
+    // These two hold the PDF the user just asked for.
+    let pendingPdfTitle = '';
+    let pendingPdfUrl   = '';
 
-    /* ==========================
+    /* ======================================================================
        1️⃣  FETCH DATA FROM BACKEND
-    ========================== */
+       ====================================================================== */
     async function fetchData() {
       try {
         const res  = await fetch(BACKEND_URL);
@@ -257,6 +246,12 @@
         // newest first (numeric id assumed)
         allData = data.sort((a, b) => Number(b.id) - Number(a.id));
         loadNextBatch();
+
+        // keep a rewarded ad warm – ask Android to preload it (if bridge exists)
+        if (window.Android && typeof window.Android.preloadRewardedAd === 'function') {
+          window.Android.preloadRewardedAd();
+        }
+
         window.addEventListener('scroll', handleScroll);
       } catch (err) {
         LOADER.style.display = 'none';
@@ -265,9 +260,9 @@
       }
     }
 
-    /* ==========================
+    /* ======================================================================
        2️⃣  LOAD NEXT BATCH OF CARDS
-    ========================== */
+       ====================================================================== */
     function loadNextBatch() {
       if (loadingMore) return;
       loadingMore = true;
@@ -282,14 +277,14 @@
       }
     }
 
-    /* ==========================
+    /* ======================================================================
        3️⃣  CREATE A SINGLE CARD
-    ========================== */
+       ====================================================================== */
     function createCard(item) {
       const card = document.createElement('div');
       card.className = 'card';
 
-      // preview (archive.org embed if available)
+      // ---------- preview ----------
       const preview = document.createElement('div');
       preview.className = 'preview';
       if (item.archive_url && item.archive_url.includes('archive.org')) {
@@ -299,7 +294,7 @@
         preview.textContent = 'No Preview Available';
       }
 
-      // info
+      // ---------- info ----------
       const info = document.createElement('div');
       info.className = 'info';
       info.innerHTML = `
@@ -307,20 +302,21 @@
         <div class="meta">👤 ${item.username ? item.username : 'Anonymous'} • 🆔 ${item.id ? item.id : 'N/A'}</div>
       `;
 
-      // open‑PDF button – shows the ad‑prompt modal
+      // ---------- Open‑PDF button ----------
       const btn = document.createElement('button');
       btn.className = 'open-btn';
       btn.textContent = 'Open PDF';
+      // **NEW** – show the ad‑prompt modal instead of opening directly
       btn.onclick = () => showAdPrompt(item.title, item.archive_url);
 
-      // assemble card
+      // Assemble card
       card.append(preview, info, btn);
       FEED.appendChild(card);
     }
 
-    /* ==========================
+    /* ======================================================================
        4️⃣  INFINITE‑SCROLL HANDLER
-    ========================== */
+       ====================================================================== */
     function handleScroll() {
       const { scrollTop, scrollHeight, clientHeight } = document.documentElement;
       if (scrollTop + clientHeight >= scrollHeight - 10) {
@@ -328,86 +324,80 @@
       }
     }
 
-    /* ==========================
-       5️⃣  AD PROMPT LOGIC
-    ========================== */
-    function showAdPrompt(title, url) {
-      pendingTitle = title;
-      pendingUrl   = url;
-      AD_MODAL.classList.add('active');
+    /* ======================================================================
+       5️⃣  SHOW THE “WATCH AD” PROMPT
+       ====================================================================== */
+    function showAdPrompt(title, archiveUrl) {
+      pendingPdfTitle = title || 'Untitled PDF';
+      pendingPdfUrl   = archiveUrl;
+
+      MODAL_TEXT.textContent = `Watch an ad to view “${pendingPdfTitle}”.`;
+      MODAL.style.display = 'flex';
     }
 
-    function hideAdPrompt() {
-      AD_MODAL.classList.remove('active');
-      pendingTitle = null;
-      pendingUrl   = null;
-    }
+    /* ======================================================================
+       6️⃣  EVENT LISTENERS FOR THE MODAL BUTTONS
+       ====================================================================== */
+    WATCH_BTN.addEventListener('click', () => {
+      // Hide modal first
+      MODAL.style.display = 'none';
 
-    // “Watch Ad” button – opens PDF and triggers rewarded ad
-    WATCH_AD_BTN.addEventListener('click', () => {
-      hideAdPrompt();
-      if (pendingTitle && pendingUrl) {
-        openPDF(pendingTitle, pendingUrl);
-        requestNativeRewardedAd(); // ask Android to play the rewarded ad
-      }
+      // Open the PDF **and** ask Android to show a rewarded ad – both start now
+      openPdfNow(pendingPdfTitle, pendingPdfUrl);
+      requestNativeRewardedAd(pendingPdfTitle);
     });
 
-    // Cancel button – just close the modal
-    CANCEL_AD_BTN.addEventListener('click', hideAdPrompt);
+    CANCEL_BTN.addEventListener('click', () => {
+      MODAL.style.display = 'none';
+      // Nothing else – user stays on the feed
+    });
 
-    /* ==========================
-       6️⃣  OPEN PDF (without automatically calling the ad)
-    ========================== */
-    function getEmbedUrl(url) {
-      if (!url) return null;
-      if (url.includes('archive.org')) {
-        return url.replace('/details/', '/embed/');
-      }
-      // Assume direct link (PDF, HTML, etc.)
-      return url;
-    }
+    /* ======================================================================
+       7️⃣  OPEN PDF (WITHOUT waiting for the ad)
+       ====================================================================== */
+    function openPdfNow(title, archiveUrl) {
+      if (!archiveUrl) return;
 
-    function openPDF(title, url) {
-      const embedUrl = getEmbedUrl(url);
-      if (!embedUrl) {
-        console.warn('Unable to embed PDF – invalid URL');
-        return;
-      }
+      // Transform Archive.org “details” URL to an embed URL that can be used in an iframe.
+      const embedUrl = archiveUrl.includes('archive.org')
+        ? archiveUrl.replace('/details/', '/embed/')
+        : archiveUrl;
+
       PDF_TITLE.textContent = title || 'PDF Viewer';
       PDF_FRAME.src = embedUrl;
       VIEWER.classList.add('active');
     }
 
-    /* ==========================
-       7️⃣  REQUEST REWARDED AD FROM ANDROID
-    ========================== */
-    function requestNativeRewardedAd() {
+    /* ======================================================================
+       8️⃣  REQUEST REWARDED AD FROM ANDROID
+       ====================================================================== */
+    function requestNativeRewardedAd(tag) {
       if (window.Android && typeof window.Android.requestRewardedAd === 'function') {
-        // Android must implement requestRewardedAd(tag)
-        window.Android.requestRewardedAd('pdf_open');
+        // The Android side will call back onAdCompleted(tag) or onAdNotAvailable()
+        window.Android.requestRewardedAd(tag);
       } else {
-        console.warn('Native rewarded‑ad bridge not available – PDF shows without an ad.');
+        console.warn("Native rewarded‑ad bridge not available – PDF will be shown without an ad.");
       }
     }
 
-    /* ==========================
-       8️⃣  CALLBACKS INVO­KED BY ANDROID
-    ========================== */
-    // Called by Android when the rewarded ad finishes successfully
+    /* ======================================================================
+       9️⃣  CALLBACKS INVOKED BY ANDROID
+       ====================================================================== */
+    // Called by Android when the rewarded ad finishes successfully (or fails – we treat both the same)
     function onAdCompleted(tag) {
-      console.log('✅ Rewarded ad completed (tag:', tag, ')');
-      // No extra UI needed – the PDF is already visible
+      console.log("✅ Rewarded ad completed (tag:", tag, ")");
+      // PDF is already visible; no extra UI changes required.
     }
 
-    // Called by Android when a rewarded ad cannot be shown
+    // Called by Android when a rewarded ad cannot be shown.
     function onAdNotAvailable() {
-      console.log('⚠️ Rewarded ad not available');
-      // PDF stays visible; nothing else to do
+      console.log("⚠️ Rewarded ad not available");
+      // PDF stays visible; the user still gets the content.
     }
 
-    /* ==========================
-       9️⃣  CLOSE VIEWER
-    ========================== */
+    /* ======================================================================
+      🔟  CLOSE FULL‑SCREEN PDF VIEWER
+       ====================================================================== */
     function closeViewer() {
       VIEWER.classList.remove('active');
       PDF_FRAME.src = '';
@@ -416,9 +406,9 @@
     CLOSE_VIEW.addEventListener('click', closeViewer);
     document.addEventListener('keydown', e => { if (e.key === 'Escape') closeViewer(); });
 
-    /* ==========================
-       🔟  BOOTSTRAP
-    ========================== */
+    /* ======================================================================
+       1️⃣1️⃣  BOOTSTRAP
+       ====================================================================== */
     fetchData();
   </script>
 </body>
