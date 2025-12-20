@@ -241,20 +241,6 @@
 
     .close-btn:hover { background: #dc2626; }
 
-    /* --- COUNTDOWN OVERLAY ------------------------------------------------- */
-    #countdownOverlay {
-      position: fixed;
-      top:0; left:0;
-      width:100%; height:100%;
-      background:rgba(0,0,0,0.85);
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      color:#fff;
-      font-size:2rem;
-      z-index:1002;
-    }
-
     @media (max-width: 768px) {
       header { font-size: 1.3em; padding: 12px; }
       .open-btn { font-size: 0.9em; padding: 8px; }
@@ -300,37 +286,35 @@
   </div>
 
   <script>
-    // ---------- Globals -------------------------------------------------
-    const FEED = document.getElementById('feed');
+    // ---------- DOM references ----------
+    const FEED   = document.getElementById('feed');
     const LOADER = document.getElementById('loader');
     const VIEWER = document.getElementById('pdfViewer');
     const PDF_FRAME = document.getElementById('pdfFrame');
     const PDF_TITLE = document.getElementById('pdfTitle');
     const CLOSE_VIEWER = document.getElementById('closeViewer');
 
-    const rewardModal = document.getElementById('rewardModal');
-    const watchAdBtn = document.getElementById('watchAdBtn');
+    const rewardModal   = document.getElementById('rewardModal');
+    const watchAdBtn    = document.getElementById('watchAdBtn');
     const closeModalBtn = document.getElementById('closeModalBtn');
     const modalPdfTitle = document.getElementById('modalPdfTitle');
 
     const BACKEND_URL = 'https://pdfs_displaying_backend.video-api-ajaiahar.workers.dev';
 
-    // State used while a PDF is being unlocked
+    // ---------- State ----------
     let currentPdf = null;               // {title, url}
     let allData = [];
     let currentIndex = 0;
     const BATCH_SIZE = 30;
     let loadingMore = false;
 
-    // ---------- Helper: run JS on UI thread (WebView) --------------------
-    const mainHandler = {
-      post(fn) { setTimeout(fn, 0); }
-    };
+    // ---------- Helper (mirrors Android's Handler) ----------
+    const mainHandler = { post: fn => setTimeout(fn, 0) };
 
-    // ---------- Fetch data ------------------------------------------------
+    // ---------- Fetch data ----------
     async function fetchData() {
       try {
-        const res = await fetch(BACKEND_URL);
+        const res  = await fetch(BACKEND_URL);
         const data = await res.json();
         LOADER.style.display = 'none';
 
@@ -343,18 +327,18 @@
         loadNextBatch();
         window.addEventListener('scroll', handleScroll);
 
-        // Ask Android to preload the first rewarded ad (if Android object exists)
+        // Ask Android to preload the first rewarded ad (if the bridge exists)
         if (typeof Android !== 'undefined' && Android.preloadRewardedAd) {
           Android.preloadRewardedAd();
         }
-      } catch (err) {
+      } catch (e) {
         LOADER.style.display = 'none';
         FEED.innerHTML = "<p style='text-align:center;color:#f87171'>Error loading data 😞</p>";
-        console.error(err);
+        console.error(e);
       }
     }
 
-    // ---------- Pagination ------------------------------------------------
+    // ---------- Pagination ----------
     function loadNextBatch() {
       if (loadingMore) return;
       loadingMore = true;
@@ -377,12 +361,12 @@
       }
     }
 
-    // ---------- Card builder ---------------------------------------------
+    // ---------- Card creation ----------
     function createCard(item) {
       const card = document.createElement('div');
       card.className = 'card';
 
-      // ---- preview (iframe from archive.org) -------------------------
+      // preview (archive.org embed)
       const preview = document.createElement('div');
       preview.className = 'preview';
       if (item.archive_url && item.archive_url.includes('archive.org')) {
@@ -392,7 +376,7 @@
         preview.textContent = 'No Preview Available';
       }
 
-      // ---- info -------------------------------------------------------
+      // info block
       const info = document.createElement('div');
       info.className = 'info';
       info.innerHTML = `
@@ -400,7 +384,7 @@
         <div class="meta">👤 ${item.username || 'Anonymous'} • 🆔 ${item.id || 'N/A'}</div>
       `;
 
-      // ---- Open / Reward button ----------------------------------------
+      // Open button → show reward‑ad modal
       const openBtn = document.createElement('button');
       openBtn.className = 'open-btn';
       openBtn.textContent = 'Open PDF';
@@ -410,7 +394,7 @@
       FEED.appendChild(card);
     }
 
-    // ---------- Reward‑Ad modal logic ------------------------------------
+    // ---------- Reward‑Ad modal ----------
     function showRewardModal(title, url) {
       currentPdf = { title, url };
       modalPdfTitle.textContent = title || 'PDF';
@@ -421,73 +405,55 @@
       rewardModal.style.display = 'none';
     }
 
-    // Click on "Watch Ad"
+    // user clicks “Watch Ad”
     watchAdBtn.addEventListener('click', () => {
       if (typeof Android !== 'undefined' && Android.requestRewardedAd) {
         Android.requestRewardedAd(currentPdf.title);
       } else {
-        // No Android bridge (e.g. testing in desktop browser) – open directly.
-        console.warn('Android interface not available – opening PDF without ad.');
+        // bridge missing – open directly (useful for desktop testing)
+        console.warn('Android bridge missing – opening PDF without ad.');
         openFullscreenPDF(currentPdf.title, currentPdf.url);
         hideRewardModal();
       }
     });
 
-    // Cancel modal
+    // user cancels modal
     closeModalBtn.addEventListener('click', hideRewardModal);
 
-    // ---------- Callbacks invoked from Android ---------------------------
+    // ---------- Callbacks invoked from Android ----------
     /**
-     * Called after the rewarded ad has been watched and the reward granted.
-     * Argument `tag` is whatever we passed as `requestRewardedAd(tag)`.
+     * Called after the rewarded ad UI has been dismissed (reward may or may not
+     * have been granted – the native side always calls this after the UI
+     * disappears).
      */
     window.onAdCompleted = function(tag) {
-      // We already have `currentPdf`; just start the countdown.
-      hideRewardModal(); // hide the modal while we show the countdown overlay
-
-      const overlay = document.createElement('div');
-      overlay.id = 'countdownOverlay';
-      document.body.appendChild(overlay);
-
-      let seconds = 3;
-
-      const tick = () => {
-        overlay.textContent = `Your PDF will open in ${seconds}...`;
-        seconds--;
-        if (seconds < 0) {
-          overlay.remove();
-          openFullscreenPDF(currentPdf.title, currentPdf.url);
-        } else {
-          setTimeout(tick, 1000);
-        }
-      };
-      tick();
-    };
-
-    /**
-     * Called when Android couldn't provide a rewarded ad (e.g. not loaded,
-     * network error, etc.). We fall back to opening the PDF directly.
-     */
-    window.onAdNotAvailable = function() {
-      alert('Ad not available at the moment – opening the PDF directly.');
+      hideRewardModal();                         // close the modal
       if (currentPdf) {
         openFullscreenPDF(currentPdf.title, currentPdf.url);
-        hideRewardModal();
       }
     };
 
-    /** Optional – just for debugging */
-    window.onAdPreloaded = function() {
-      console.log('Rewarded ad preloaded');
-    };
-    window.onAdFailedToPreload = function() {
-      console.warn('Failed to preload rewarded ad');
+    /**
+     * Called when Android could not show a rewarded ad (not loaded,
+     * network error, etc.). We simply fall back to opening the PDF.
+     */
+    window.onAdNotAvailable = function() {
+      hideRewardModal();
+      if (currentPdf) {
+        openFullscreenPDF(currentPdf.title, currentPdf.url);
+      }
     };
 
-    // ---------- Full‑screen PDF viewer -----------------------------------
+    // optional debugging helpers
+    window.onAdPreloaded = function() { console.log('Rewarded ad preloaded'); };
+    window.onAdFailedToPreload = function() { console.warn('Failed to preload rewarded ad'); };
+
+    // ---------- Full‑screen PDF viewer ----------
     function openFullscreenPDF(title, url) {
       if (!url) return;
-      const embedUrl = url.includes('archive.org') ? url.replace('/details/', '/embed/') : url;
+      const embedUrl = url.includes('archive.org')
+          ? url.replace('/details/', '/embed/')
+          : url;
       PDF_TITLE.textContent = title || 'PDF Viewer';
       PDF_FRAME.src = embedUrl;
       VIEWER.classList.add('active');
@@ -503,7 +469,7 @@
       if (e.key === 'Escape') closeViewer();
     });
 
-    // ---------- Kick‑off -------------------------------------------------
+    // ---------- Start the flow ----------
     fetchData();
   </script>
 </body>
