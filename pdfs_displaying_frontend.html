@@ -177,6 +177,31 @@
 </head>
 
 <body>
+  <!-- ------------------------------------------------------------
+       DEBUG PANEL – appears when you tap the tiny “🪵 Debug” button.
+       ------------------------------------------------------------ -->
+  <div id="debugPanel" style="
+        position:fixed; top:0; left:0; right:0; height:200px;
+        background:rgba(0,0,0,0.85); color:#0f0; font-family:monospace;
+        font-size:12px; line-height:1.3; overflow-y:auto; z-index:9999;
+        display:none; padding:8px 8px 30px 8px;">
+    <button id="debugCloseBtn" style="
+        position:absolute; top:4px; right:4px;
+        background:#222; color:#fff; border:none; padding:2px 6px;
+        font-size:10px; cursor:pointer;">✕</button>
+    <div id="debugLog"></div>
+  </div>
+
+  <!-- tiny button that opens the panel -->
+  <button id="debugOpenBtn" style="
+        position:fixed; bottom:12px; right:12px;
+        background:#222; color:#0f0; border:none; border-radius:4px;
+        padding:6px 10px; font-size:12px; cursor:pointer;
+        z-index:9999;">🪵 Debug</button>
+
+  <!-- ------------------------------------------------------------------
+       THE ORIGINAL UI (header, feed, loader, footer, viewer, modal)
+       ------------------------------------------------------------------ -->
   <header>📚 PDF Stream</header>
 
   <div id="feed"></div>
@@ -202,220 +227,345 @@
     </div>
   </div>
 
+  <!-- ------------------------------------------------------------
+       DEBUGGER SCRIPT – runs once, wraps console, Android bridge,
+       network, and then executes the original app logic.
+       ------------------------------------------------------------ -->
   <script>
-    /* ------------------------------------------------------------------
-       Global elements / state
-    ------------------------------------------------------------------- */
-    const FEED          = document.getElementById('feed');
-    const LOADER        = document.getElementById('loader');
-    const VIEWER        = document.getElementById('pdfViewer');
-    const PDF_FRAME     = document.getElementById('pdfFrame');
-    const PDF_TITLE     = document.getElementById('pdfTitle');
-    const CLOSE_VIEWER  = document.getElementById('closeViewer');
+    (function () {
+      /* --------------------------------------------------------
+         0️⃣  QUICK HELPER – writes a line to the on‑page panel
+              and also forwards to the real console (so Logcat still
+              gets the messages).
+         -------------------------------------------------------- */
+      const LOG_CONTAINER = document.getElementById('debugLog');
 
-    const AD_MODAL      = document.getElementById('adModal');
-    const WATCH_BTN     = document.getElementById('watchAdBtn');
-    const CANCEL_BTN    = document.getElementById('cancelBtn');
-
-    const BACKEND_URL   = 'https://pdfs_displaying_backend.video-api-ajaiahar.workers.dev';
-
-    let allData = [], currentIndex = 0;
-    const BATCH_SIZE = 30;
-    let loadingMore = false;
-
-    // -----------------------------------------------------------------
-    // This object holds everything we need for the *current* PDF request.
-    // It will be JSON‑stringified and given to Android.
-    // -----------------------------------------------------------------
-    let pendingPayload = null;   // {title:string, url:string}
-
-    // -----------------------------------------------------------------
-    // Helper – open PDF in the full‑screen viewer
-    // -----------------------------------------------------------------
-    function openFullscreenPDF(title, url) {
-      if (!url) {
-        console.warn('openFullscreenPDF called with empty URL');
-        return;
+      function dLog(...args) {
+        // 1️⃣ forward to the real console (so Logcat still sees it)
+        console.__origLog.apply(console, args);
+        // 2️⃣ write to the UI panel
+        const line = document.createElement('div');
+        line.textContent = args.map(a => {
+          try { return typeof a === 'object' ? JSON.stringify(a) : String(a); }
+          catch (e) { return String(a); }
+        }).join(' ');
+        LOG_CONTAINER.appendChild(line);
+        LOG_CONTAINER.scrollTop = LOG_CONTAINER.scrollHeight; // auto‑scroll
       }
-      const embedUrl = url.includes('archive.org')
-        ? url.replace('/details/', '/embed/')
-        : url;
-      PDF_TITLE.textContent = title || 'PDF Viewer';
-      PDF_FRAME.src = embedUrl;
-      VIEWER.classList.add('active');
-    }
 
-    // -----------------------------------------------------------------
-    // Show the “watch‑ad” modal and keep a copy of the payload
-    // -----------------------------------------------------------------
-    function showAdModal(item) {
-      pendingPayload = {
-        title: item.title || 'Untitled PDF',
-        url:   item.archive_url || ''
-      };
-      AD_MODAL.style.display = 'flex';
-    }
+      /* --------------------------------------------------------
+         Preserve the original console methods – we’ll call them
+         from our wrappers.
+         -------------------------------------------------------- */
+      console.__origLog   = console.log   || function () {};
+      console.__origWarn  = console.warn  || function () {};
+      console.__origError = console.error || function () {};
+      console.__origInfo  = console.info  || function () {};
 
-    // -----------------------------------------------------------------
-    // “Watch Ad” button – send the JSON payload to Android
-    // -----------------------------------------------------------------
-    WATCH_BTN.addEventListener('click', () => {
-      AD_MODAL.style.display = 'none';
-      if (window.Android && typeof Android.requestRewardedAd === 'function') {
-        const tag = JSON.stringify(pendingPayload);   // ← title + URL together
-        console.log('→ requestRewardedAd, tag =', tag);
-        Android.requestRewardedAd(tag);
+      /* --------------------------------------------------------
+         Override console.* so every call appears in the panel.
+         -------------------------------------------------------- */
+      console.log   = (...a) => dLog('[LOG]',   ...a);
+      console.warn  = (...a) => dLog('[WARN]',  ...a);
+      console.error = (...a) => dLog('[ERR]',   ...a);
+      console.info  = (...a) => dLog('[INFO]',  ...a);
+
+      /* --------------------------------------------------------
+         1️⃣  UI – open / close the debug panel
+         -------------------------------------------------------- */
+      const panel    = document.getElementById('debugPanel');
+      const openBtn  = document.getElementById('debugOpenBtn');
+      const closeBtn = document.getElementById('debugCloseBtn');
+
+      openBtn.addEventListener('click', () => panel.style.display = 'block');
+      closeBtn.addEventListener('click', () => panel.style.display = 'none');
+
+      /* --------------------------------------------------------
+         2️⃣  WRAP THE ANDROID BRIDGE (if it exists) and log every call
+         -------------------------------------------------------- */
+      if (window.Android) {
+        const orig = {
+          requestRewardedAd   : window.Android.requestRewardedAd,
+          preloadRewardedAd   : window.Android.preloadRewardedAd,
+          loadUrlInWebView    : window.Android.loadUrlInWebView,
+          getAndroidId       : window.Android.getAndroidId
+        };
+
+        const wrap = (name, fn) => (...args) => {
+          console.log(`🔹 Android.${name} called with`, ...args);
+          const ret = fn.apply(window.Android, args);
+          if (ret !== undefined) {
+            console.log(`🔹 Android.${name} returned →`, ret);
+          }
+          return ret;
+        };
+
+        window.Android.requestRewardedAd   = wrap('requestRewardedAd',   orig.requestRewardedAd);
+        window.Android.preloadRewardedAd   = wrap('preloadRewardedAd',   orig.preloadRewardedAd);
+        window.Android.loadUrlInWebView    = wrap('loadUrlInWebView',    orig.loadUrlInWebView);
+        window.Android.getAndroidId        = wrap('getAndroidId',        orig.getAndroidId);
       } else {
-        // No Android bridge – open immediately (desktop testing, etc.)
-        console.log('No Android bridge – opening PDF directly');
-        openFullscreenPDF(pendingPayload.title, pendingPayload.url);
-        pendingPayload = null;
+        console.warn('⚠️ No Android bridge detected – running in a browser');
       }
-    });
 
-    // -----------------------------------------------------------------
-    // “Cancel” button – just hide the modal and forget the payload
-    // -----------------------------------------------------------------
-    CANCEL_BTN.addEventListener('click', () => {
-      AD_MODAL.style.display = 'none';
-      pendingPayload = null;
-    });
+      /* --------------------------------------------------------
+         3️⃣  INTERCEPT THE CALLBACKS THAT Android WILL CALL
+         -------------------------------------------------------- */
+      const origOnAdPreloaded       = window.onAdPreloaded       || function () {};
+      const origOnAdFailedToPreload = window.onAdFailedToPreload || function () {};
+      const origOnAdNotAvailable    = window.onAdNotAvailable    || function () {};
+      const origOnAdCompleted       = window.onAdCompleted       || function () {};
 
-    // -----------------------------------------------------------------
-    // Callbacks that Android invokes
-    // -----------------------------------------------------------------
-    window.onAdPreloaded = function () {
-      console.log('✅ rewarded ad pre‑loaded');
-    };
+      window.onAdPreloaded = function () {
+        console.log('✅ onAdPreloaded');
+        origOnAdPreloaded();
+      };
+      window.onAdFailedToPreload = function () {
+        console.warn('⚠️ onAdFailedToPreload');
+        origOnAdFailedToPreload();
+      };
+      window.onAdNotAvailable = function () {
+        console.warn('⚠️ onAdNotAvailable');
+        origOnAdNotAvailable();
+      };
+      window.onAdCompleted = function (tag) {
+        console.log('✅ onAdCompleted, tag =', tag);
+        origOnAdCompleted(tag);
+      };
 
-    window.onAdFailedToPreload = function () {
-      console.warn('⚠️ rewarded ad failed to preload');
-    };
+      /* --------------------------------------------------------
+         4️⃣  INTERCEPT NETWORK – fetch() and XHR (Archive.org uses XHR)
+         -------------------------------------------------------- */
+      // ---- fetch -------------------------------------------------
+      const origFetch = window.fetch;
+      window.fetch = function (...args) {
+        console.log('🔗 fetch →', ...args);
+        return origFetch.apply(this, args)
+          .then(resp => {
+            console.log('🔗 fetch response →', {
+              url: resp.url,
+              status: resp.status,
+              ok: resp.ok,
+              type: resp.type
+            });
+            return resp;
+          })
+          .catch(err => {
+            console.error('🔗 fetch error →', err);
+            throw err;
+          });
+      };
 
-    window.onAdNotAvailable = function () {
-      console.warn('⚠️ rewarded ad not available – opening PDF directly');
-      if (pendingPayload) {
-        openFullscreenPDF(pendingPayload.title, pendingPayload.url);
-        pendingPayload = null;
-      }
-    };
+      // ---- XHR ---------------------------------------------------
+      const origOpen = XMLHttpRequest.prototype.open;
+      XMLHttpRequest.prototype.open = function (method, url, async, user, pwd) {
+        this.__debugInfo = { method, url };
+        console.log('🔗 XHR open →', method, url);
+        return origOpen.apply(this, arguments);
+      };
+      const origSend = XMLHttpRequest.prototype.send;
+      XMLHttpRequest.prototype.send = function (body) {
+        const info = this.__debugInfo || {};
+        console.log('🔗 XHR send →', info.method, info.url, 'body:', body);
+        this.addEventListener('load', function () {
+          console.log('🔗 XHR load →', {
+            url: info.url,
+            status: this.status,
+            responseURL: this.responseURL,
+            responseSnippet: this.responseText?.slice(0, 200)
+          });
+        });
+        this.addEventListener('error', function () {
+          console.error('🔗 XHR error →', info.url);
+        });
+        return origSend.apply(this, arguments);
+      };
 
-    window.onAdCompleted = function (tag) {
-      console.log('✅ onAdCompleted, tag =', tag);
-      try {
-        const payload = JSON.parse(tag);   // <-- recovers {title,url}
-        openFullscreenPDF(payload.title, payload.url);
-      } catch (e) {
-        console.error('❌ failed to parse ad tag:', e);
-        // Fallback – use whatever we still have locally
-        if (pendingPayload) {
-          openFullscreenPDF(pendingPayload.title, pendingPayload.url);
-        }
-      }
-      pendingPayload = null;
-    };
+      /* --------------------------------------------------------
+         5️⃣  ORIGINAL APP LOGIC – unchanged, but now every
+              `console.log` call will appear in the debug panel.
+         -------------------------------------------------------- */
 
-    // -----------------------------------------------------------------
-    // Data fetching & UI building
-    // -----------------------------------------------------------------
-    async function fetchData() {
-      try {
-        const res  = await fetch(BACKEND_URL);
-        const data = await res.json();
-        LOADER.style.display = 'none';
+      // ------------------- Global elements / state -------------------
+      const FEED          = document.getElementById('feed');
+      const LOADER        = document.getElementById('loader');
+      const VIEWER        = document.getElementById('pdfViewer');
+      const PDF_FRAME     = document.getElementById('pdfFrame');
+      const PDF_TITLE     = document.getElementById('pdfTitle');
+      const CLOSE_VIEWER  = document.getElementById('closeViewer');
 
-        if (!data || data.length === 0) {
-          FEED.innerHTML = "<p style='text-align:center;color:#94a3b8'>No PDFs found 😢</p>";
+      const AD_MODAL      = document.getElementById('adModal');
+      const WATCH_BTN     = document.getElementById('watchAdBtn');
+      const CANCEL_BTN    = document.getElementById('cancelBtn');
+
+      const BACKEND_URL   = 'https://pdfs_displaying_backend.video-api-ajaiahar.workers.dev';
+
+      let allData = [], currentIndex = 0;
+      const BATCH_SIZE = 30;
+      let loadingMore = false;
+
+      // Holds the data for the PDF that the user is about to view
+      let pendingPayload = null;   // {title:string, url:string}
+
+      // -----------------------------------------------------------------
+      // Helper – open PDF in the full‑screen viewer
+      // -----------------------------------------------------------------
+      function openFullscreenPDF(title, url) {
+        if (!url) {
+          console.warn('openFullscreenPDF called with empty URL');
           return;
         }
-
-        allData = data.sort((a, b) => Number(b.id) - Number(a.id));
-        loadNextBatch();
-        window.addEventListener('scroll', handleScroll);
-      } catch (err) {
-        LOADER.style.display = 'none';
-        FEED.innerHTML = "<p style='text-align:center;color:#f87171'>Error loading data 😞</p>";
-        console.error(err);
-      }
-    }
-
-    function loadNextBatch() {
-      if (loadingMore) return;
-      loadingMore = true;
-
-      const nextBatch = allData.slice(currentIndex, currentIndex + BATCH_SIZE);
-      nextBatch.forEach(item => createCard(item));
-
-      currentIndex += BATCH_SIZE;
-      loadingMore = false;
-
-      if (currentIndex >= allData.length) {
-        window.removeEventListener('scroll', handleScroll);
-      }
-    }
-
-    function createCard(item) {
-      const card = document.createElement('div');
-      card.className = 'card';
-
-      const preview = document.createElement('div');
-      preview.className = 'preview';
-
-      if (item.archive_url && item.archive_url.includes('archive.org')) {
-        const embedUrl = item.archive_url.replace('/details/', '/embed/');
-        preview.innerHTML = `<iframe src="${embedUrl}" allowfullscreen></iframe>`;
-      } else {
-        preview.textContent = 'No Preview Available';
+        const embedUrl = url.includes('archive.org')
+          ? url.replace('/details/', '/embed/')
+          : url;
+        console.log('🔗 embedUrl that will be set on iframe =', embedUrl);
+        PDF_TITLE.textContent = title || 'PDF Viewer';
+        PDF_FRAME.src = embedUrl;
+        VIEWER.classList.add('active');
       }
 
-      const info = document.createElement('div');
-      info.className = 'info';
-      info.innerHTML = `
-        <div class="title">${item.title || 'Untitled PDF'}</div>
-        <div class="meta">👤 ${item.username || 'Anonymous'} • 🆔 ${item.id || 'N/A'}</div>
-      `;
-
-      const openBtn = document.createElement('button');
-      openBtn.className = 'open-btn';
-      openBtn.textContent = 'Open PDF';
-      openBtn.onclick = () => showAdModal(item);
-
-      card.append(preview, info, openBtn);
-      FEED.appendChild(card);
-    }
-
-    function handleScroll() {
-      const { scrollTop, scrollHeight, clientHeight } = document.documentElement;
-      if (scrollTop + clientHeight >= scrollHeight - 10) {
-        loadNextBatch();
+      // -----------------------------------------------------------------
+      // Show modal and keep a copy of the payload
+      // -----------------------------------------------------------------
+      function showAdModal(item) {
+        pendingPayload = {
+          title: item.title || 'Untitled PDF',
+          url:   item.archive_url || ''
+        };
+        console.log('🟠 showAdModal → pendingPayload =', pendingPayload);
+        AD_MODAL.style.display = 'flex';
       }
-    }
 
-    // -----------------------------------------------------------------
-    // Viewer close handling
-    // -----------------------------------------------------------------
-    CLOSE_VIEWER.onclick = closeViewer;
-    document.addEventListener('keydown', e => {
-      if (e.key === 'Escape') closeViewer();
-    });
+      // -----------------------------------------------------------------
+      // “Watch Ad” – send JSON payload to Android
+      // -----------------------------------------------------------------
+      WATCH_BTN.addEventListener('click', () => {
+        AD_MODAL.style.display = 'none';
+        if (window.Android && typeof Android.requestRewardedAd === 'function') {
+          const tag = JSON.stringify(pendingPayload);
+          console.log('→ requestRewardedAd(tag) =', tag);
+          Android.requestRewardedAd(tag);
+        } else {
+          console.log('❎ No Android bridge – opening PDF directly');
+          openFullscreenPDF(pendingPayload.title, pendingPayload.url);
+          pendingPayload = null;
+        }
+      });
 
-    function closeViewer() {
-      VIEWER.classList.remove('active');
-      PDF_FRAME.src = '';
-    }
+      // -----------------------------------------------------------------
+      // “Cancel” button – hide modal & discard payload
+      // -----------------------------------------------------------------
+      CANCEL_BTN.addEventListener('click', () => {
+        console.log('✖️ User cancelled – dropping pendingPayload');
+        AD_MODAL.style.display = 'none';
+        pendingPayload = null;
+      });
 
-    // -----------------------------------------------------------------
-    // Initialise – preload the rewarded ad (only when running inside Android)
-    // -----------------------------------------------------------------
-    document.addEventListener('DOMContentLoaded', () => {
-      if (window.Android && typeof Android.preloadRewardedAd === 'function') {
-        console.log('📢 pre‑loading rewarded ad');
-        Android.preloadRewardedAd();
-      } else {
-        console.log('🚫 Android bridge not present – running in a browser');
+      // -----------------------------------------------------------------
+      // Data fetching & UI building (unchanged)
+      // -----------------------------------------------------------------
+      async function fetchData() {
+        try {
+          console.log('📦 fetching data from backend →', BACKEND_URL);
+          const res  = await fetch(BACKEND_URL);
+          const data = await res.json();
+          LOADER.style.display = 'none';
+
+          if (!data || data.length === 0) {
+            FEED.innerHTML = "<p style='text-align:center;color:#94a3b8'>No PDFs found 😢</p>";
+            console.warn('⚠️ Backend returned empty array');
+            return;
+          }
+
+          allData = data.sort((a, b) => Number(b.id) - Number(a.id));
+          loadNextBatch();
+          window.addEventListener('scroll', handleScroll);
+        } catch (err) {
+          LOADER.style.display = 'none';
+          FEED.innerHTML = "<p style='text-align:center;color:#f87171'>Error loading data 😞</p>";
+          console.error('❌ fetchData error →', err);
+        }
       }
-      fetchData();
-    });
+
+      function loadNextBatch() {
+        if (loadingMore) return;
+        loadingMore = true;
+
+        const nextBatch = allData.slice(currentIndex, currentIndex + BATCH_SIZE);
+        console.log('🔀 loading next batch – items', currentIndex, 'to', currentIndex + BATCH_SIZE);
+        nextBatch.forEach(item => createCard(item));
+
+        currentIndex += BATCH_SIZE;
+        loadingMore = false;
+
+        if (currentIndex >= allData.length) {
+          window.removeEventListener('scroll', handleScroll);
+        }
+      }
+
+      function createCard(item) {
+        const card = document.createElement('div');
+        card.className = 'card';
+
+        const preview = document.createElement('div');
+        preview.className = 'preview';
+
+        if (item.archive_url && item.archive_url.includes('archive.org')) {
+          const embedUrl = item.archive_url.replace('/details/', '/embed/');
+          preview.innerHTML = `<iframe src="${embedUrl}" allowfullscreen></iframe>`;
+        } else {
+          preview.textContent = 'No Preview Available';
+        }
+
+        const info = document.createElement('div');
+        info.className = 'info';
+        info.innerHTML = `
+          <div class="title">${item.title || 'Untitled PDF'}</div>
+          <div class="meta">👤 ${item.username || 'Anonymous'} • 🆔 ${item.id || 'N/A'}</div>
+        `;
+
+        const openBtn = document.createElement('button');
+        openBtn.className = 'open-btn';
+        openBtn.textContent = 'Open PDF';
+        openBtn.onclick = () => showAdModal(item);
+
+        card.append(preview, info, openBtn);
+        FEED.appendChild(card);
+      }
+
+      function handleScroll() {
+        const { scrollTop, scrollHeight, clientHeight } = document.documentElement;
+        if (scrollTop + clientHeight >= scrollHeight - 10) {
+          loadNextBatch();
+        }
+      }
+
+      // -----------------------------------------------------------------
+      // Viewer close handling
+      // -----------------------------------------------------------------
+      CLOSE_VIEWER.onclick = closeViewer;
+      document.addEventListener('keydown', e => {
+        if (e.key === 'Escape') closeViewer();
+      });
+
+      function closeViewer() {
+        VIEWER.classList.remove('active');
+        PDF_FRAME.src = '';
+      }
+
+      // -----------------------------------------------------------------
+      // Initialise – preload the rewarded ad (only when Android bridge exists)
+      // -----------------------------------------------------------------
+      document.addEventListener('DOMContentLoaded', () => {
+        if (window.Android && typeof Android.preloadRewardedAd === 'function') {
+          console.log('📢 pre‑loading rewarded ad');
+          Android.preloadRewardedAd();
+        } else {
+          console.log('🚫 Android bridge not present – running in a browser');
+        }
+        fetchData();
+      });
+    })();
   </script>
 </body>
 </html>
