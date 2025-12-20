@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>📚 PDF Stream</title>
 
-  <!-- Font -->
+  <!-- Google Font -->
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap"
         rel="stylesheet"/>
 
@@ -175,7 +175,6 @@
     }
   </style>
 </head>
-
 <body>
   <!-- ------------------------------------------------------------
        DEBUG PANEL – appears when you tap the tiny “🪵 Debug” button.
@@ -207,7 +206,7 @@
   <div id="feed"></div>
   <div id="loader" class="loader"></div>
 
-  <footer>Powered by Archive & Your Backend</footer>
+  <footer>Powered by Archive &amp; Your Backend</footer>
 
   <!-- Full‑screen PDF viewer -->
   <div id="pdfViewer" class="pdf-viewer">
@@ -228,34 +227,32 @@
   </div>
 
   <!-- ------------------------------------------------------------
-       DEBUGGER SCRIPT – runs once, wraps console, Android bridge,
-       network, and then executes the original app logic.
+       DEBUGGER SCRIPT – wraps console, Android bridge, network and
+       then runs the original app logic.
        ------------------------------------------------------------ -->
   <script>
     (function () {
       /* --------------------------------------------------------
-         0️⃣  QUICK HELPER – writes a line to the on‑page panel
-              and also forwards to the real console (so Logcat still
-              gets the messages).
+         0️⃣  Helper – write a line to the on‑page panel
+               and forward to the real console.
          -------------------------------------------------------- */
       const LOG_CONTAINER = document.getElementById('debugLog');
 
       function dLog(...args) {
-        // 1️⃣ forward to the real console (so Logcat still sees it)
+        // forward to original console (so Logcat still sees it)
         console.__origLog.apply(console, args);
-        // 2️⃣ write to the UI panel
+        // write to the UI panel
         const line = document.createElement('div');
         line.textContent = args.map(a => {
           try { return typeof a === 'object' ? JSON.stringify(a) : String(a); }
           catch (e) { return String(a); }
         }).join(' ');
         LOG_CONTAINER.appendChild(line);
-        LOG_CONTAINER.scrollTop = LOG_CONTAINER.scrollHeight; // auto‑scroll
+        LOG_CONTAINER.scrollTop = LOG_CONTAINER.scrollHeight;
       }
 
       /* --------------------------------------------------------
-         Preserve the original console methods – we’ll call them
-         from our wrappers.
+         Preserve the original console methods.
          -------------------------------------------------------- */
       console.__origLog   = console.log   || function () {};
       console.__origWarn  = console.warn  || function () {};
@@ -271,7 +268,7 @@
       console.info  = (...a) => dLog('[INFO]',  ...a);
 
       /* --------------------------------------------------------
-         1️⃣  UI – open / close the debug panel
+         UI – open / close the debug panel.
          -------------------------------------------------------- */
       const panel    = document.getElementById('debugPanel');
       const openBtn  = document.getElementById('debugOpenBtn');
@@ -281,14 +278,14 @@
       closeBtn.addEventListener('click', () => panel.style.display = 'none');
 
       /* --------------------------------------------------------
-         2️⃣  WRAP THE ANDROID BRIDGE (if it exists) and log every call
+         1️⃣  Wrap the Android bridge (if it exists) and log every call.
          -------------------------------------------------------- */
       if (window.Android) {
         const orig = {
           requestRewardedAd   : window.Android.requestRewardedAd,
           preloadRewardedAd   : window.Android.preloadRewardedAd,
           loadUrlInWebView    : window.Android.loadUrlInWebView,
-          getAndroidId       : window.Android.getAndroidId
+          getAndroidId        : window.Android.getAndroidId
         };
 
         const wrap = (name, fn) => (...args) => {
@@ -309,32 +306,58 @@
       }
 
       /* --------------------------------------------------------
-         3️⃣  INTERCEPT THE CALLBACKS THAT Android WILL CALL
+         2️⃣  Intercept the callbacks that Android will call.
          -------------------------------------------------------- */
-      const origOnAdPreloaded       = window.onAdPreloaded       || function () {};
-      const origOnAdFailedToPreload = window.onAdFailedToPreload || function () {};
-      const origOnAdNotAvailable    = window.onAdNotAvailable    || function () {};
-      const origOnAdCompleted       = window.onAdCompleted       || function () {};
+      // If the app (or another script) defined any of these before us,
+      // we preserve them and call them after our own handling.
+      const _origOnAdPreloaded       = window.onAdPreloaded       || function () {};
+      const _origOnAdFailedToPreload = window.onAdFailedToPreload || function () {};
+      const _origOnAdNotAvailable    = window.onAdNotAvailable    || function () {};
+      const _origOnAdCompleted       = window.onAdCompleted       || function () {};
 
       window.onAdPreloaded = function () {
         console.log('✅ onAdPreloaded');
-        origOnAdPreloaded();
+        _origOnAdPreloaded();
       };
       window.onAdFailedToPreload = function () {
         console.warn('⚠️ onAdFailedToPreload');
-        origOnAdFailedToPreload();
-      };
-      window.onAdNotAvailable = function () {
-        console.warn('⚠️ onAdNotAvailable');
-        origOnAdNotAvailable();
-      };
-      window.onAdCompleted = function (tag) {
-        console.log('✅ onAdCompleted, tag =', tag);
-        origOnAdCompleted(tag);
+        _origOnAdFailedToPreload();
       };
 
       /* --------------------------------------------------------
-         4️⃣  INTERCEPT NETWORK – fetch() and XHR (Archive.org uses XHR)
+         The two callbacks we really care about – we replace them
+         with our own logic (they still call any previously‑defined
+         callbacks via the variables above).
+         -------------------------------------------------------- */
+      window.onAdNotAvailable = function () {
+        console.warn('⚠️ rewarded ad not available – opening PDF directly');
+        if (pendingPayload) {
+          openFullscreenPDF(pendingPayload.title, pendingPayload.url);
+          pendingPayload = null;
+        }
+        adInProgress = false; // unlock
+        _origOnAdNotAvailable();
+      };
+
+      window.onAdCompleted = function (tag) {
+        console.log('✅ onAdCompleted, tag =', tag);
+        try {
+          const payload = JSON.parse(tag);
+          openFullscreenPDF(payload.title, payload.url);
+        } catch (e) {
+          console.error('❌ parse error in onAdCompleted →', e);
+          // Fallback to whatever we still have stored
+          if (pendingPayload) {
+            openFullscreenPDF(pendingPayload.title, pendingPayload.url);
+          }
+        }
+        pendingPayload = null;
+        adInProgress = false; // unlock
+        _origOnAdCompleted(tag);
+      };
+
+      /* --------------------------------------------------------
+         3️⃣  Intercept network – fetch() and XHR (Archive.org uses XHR)
          -------------------------------------------------------- */
       // ---- fetch -------------------------------------------------
       const origFetch = window.fetch;
@@ -382,8 +405,8 @@
       };
 
       /* --------------------------------------------------------
-         5️⃣  ORIGINAL APP LOGIC – unchanged, but now every
-              `console.log` call will appear in the debug panel.
+         4️⃣  ORIGINAL APP LOGIC (now augmented with ad‑lock &
+              payload handling).
          -------------------------------------------------------- */
 
       // ------------------- Global elements / state -------------------
@@ -404,8 +427,10 @@
       const BATCH_SIZE = 30;
       let loadingMore = false;
 
-      // Holds the data for the PDF that the user is about to view
+      // Holds the data for the PDF that the user wants to view.
       let pendingPayload = null;   // {title:string, url:string}
+      // Prevent multiple ad requests while one is already in flight.
+      let adInProgress = false;
 
       // -----------------------------------------------------------------
       // Helper – open PDF in the full‑screen viewer
@@ -415,6 +440,7 @@
           console.warn('openFullscreenPDF called with empty URL');
           return;
         }
+        // Convert Archive.org details URL → embed URL
         const embedUrl = url.includes('archive.org')
           ? url.replace('/details/', '/embed/')
           : url;
@@ -428,6 +454,7 @@
       // Show modal and keep a copy of the payload
       // -----------------------------------------------------------------
       function showAdModal(item) {
+        // Store the *raw* Archive.org details URL.
         pendingPayload = {
           title: item.title || 'Untitled PDF',
           url:   item.archive_url || ''
@@ -437,11 +464,19 @@
       }
 
       // -----------------------------------------------------------------
-      // “Watch Ad” – send JSON payload to Android
+      // “Watch Ad” – send JSON payload to Android (with lock)
       // -----------------------------------------------------------------
       WATCH_BTN.addEventListener('click', () => {
         AD_MODAL.style.display = 'none';
+
+        // If we already have an ad in progress, ignore the click.
+        if (adInProgress) {
+          console.warn('⚠️ Ad already in progress – ignoring Watch Ad click');
+          return;
+        }
+
         if (window.Android && typeof Android.requestRewardedAd === 'function') {
+          adInProgress = true; // ← lock
           const tag = JSON.stringify(pendingPayload);
           console.log('→ requestRewardedAd(tag) =', tag);
           Android.requestRewardedAd(tag);
@@ -459,10 +494,11 @@
         console.log('✖️ User cancelled – dropping pendingPayload');
         AD_MODAL.style.display = 'none';
         pendingPayload = null;
+        adInProgress = false; // unlock (in case a stray ad was pending)
       });
 
       // -----------------------------------------------------------------
-      // Data fetching & UI building (unchanged)
+      // Data fetching & UI building (unchanged apart from logging)
       // -----------------------------------------------------------------
       async function fetchData() {
         try {
@@ -511,6 +547,7 @@
         preview.className = 'preview';
 
         if (item.archive_url && item.archive_url.includes('archive.org')) {
+          // Show the *embed* view in the preview (fast loading thumbnail)
           const embedUrl = item.archive_url.replace('/details/', '/embed/');
           preview.innerHTML = `<iframe src="${embedUrl}" allowfullscreen></iframe>`;
         } else {
